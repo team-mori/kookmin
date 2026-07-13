@@ -1,0 +1,21 @@
+# Dependencies and build output
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+.vercel/
+
+# Logs
+*.log
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
