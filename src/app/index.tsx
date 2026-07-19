@@ -9,7 +9,7 @@ import {
 } from "@maplibre/maplibre-react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
@@ -22,6 +22,10 @@ import {
   ENGINEERING_FLOOR_SHELL,
   type EngineeringFloor
 } from "../data/engineering-floors";
+import {
+  searchEngineeringRooms,
+  type EngineeringRoomSearchResult
+} from "../data/engineering-search";
 
 const CAMPUS_CENTER = ENGINEERING_CENTER;
 const FLOORS: EngineeringFloor[] = [2, 1];
@@ -44,9 +48,31 @@ export default function CampusMapScreen() {
   const insets = useSafeAreaInsets();
   const [indoor, setIndoor] = useState(false);
   const [floor, setFloor] = useState<EngineeringFloor>(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [selectedRoom, setSelectedRoom] =
+    useState<EngineeringRoomSearchResult | null>(null);
+  const searchResults = searchEngineeringRooms(searchQuery);
+  const hasSearchQuery = searchQuery.trim().length > 0;
+
+  const focusRoom = (room: EngineeringRoomSearchResult) => {
+    cameraRef.current?.easeTo({
+      bearing: 0,
+      center: room.center,
+      duration: 550,
+      padding: { top: 164, right: 28, bottom: 120, left: 28 },
+      pitch: 36,
+      zoom: 19.4
+    });
+  };
 
   const syncCamera = () => {
     if (indoor) {
+      if (selectedRoom) {
+        focusRoom(selectedRoom);
+        return;
+      }
+
       cameraRef.current?.fitBounds(ENGINEERING_FLOOR_BOUNDS, {
         bearing: 0,
         duration: 550,
@@ -69,10 +95,31 @@ export default function CampusMapScreen() {
   const openEngineeringBuilding = () => {
     setIndoor(true);
     setFloor(1);
+    setSelectedRoom(null);
   };
 
   const closeEngineeringBuilding = () => {
     setIndoor(false);
+    setSelectedRoom(null);
+  };
+
+  const selectRoom = (room: EngineeringRoomSearchResult) => {
+    setIndoor(true);
+    setFloor(room.floor);
+    setSelectedRoom(room);
+    setSearchOpen(false);
+    focusRoom(room);
+  };
+
+  const resetSearch = () => {
+    setSearchQuery("");
+    setSearchOpen(false);
+    setSelectedRoom(null);
+  };
+
+  const changeFloor = (nextFloor: EngineeringFloor) => {
+    setFloor(nextFloor);
+    if (selectedRoom?.floor !== nextFloor) setSelectedRoom(null);
   };
 
   return (
@@ -225,6 +272,30 @@ export default function CampusMapScreen() {
                   ]
                 }}
               />
+              {selectedRoom?.floor === floor && (
+                <>
+                  <Layer
+                    id={`engineering-${floor}f-selected-fill`}
+                    type="fill-extrusion"
+                    filter={["==", ["get", "id"], selectedRoom.id]}
+                    paint={{
+                      "fill-extrusion-base": 0,
+                      "fill-extrusion-color": "#2478F4",
+                      "fill-extrusion-height": 5.4,
+                      "fill-extrusion-opacity": 1
+                    }}
+                  />
+                  <Layer
+                    id={`engineering-${floor}f-selected-outline`}
+                    type="line"
+                    filter={["==", ["get", "id"], selectedRoom.id]}
+                    paint={{
+                      "line-color": "#0B4EB9",
+                      "line-width": 3
+                    }}
+                  />
+                </>
+              )}
             </GeoJSONSource>
 
             <GeoJSONSource
@@ -271,6 +342,26 @@ export default function CampusMapScreen() {
                   "text-halo-width": 0.8
                 }}
               />
+              {selectedRoom?.floor === floor && (
+                <Layer
+                  id={`engineering-${floor}f-selected-label`}
+                  type="symbol"
+                  filter={["==", ["get", "id"], selectedRoom.id]}
+                  layout={{
+                    "text-allow-overlap": true,
+                    "text-field": ["get", "label"],
+                    "text-font": ["Noto Sans Regular"],
+                    "text-pitch-alignment": "viewport",
+                    "text-rotation-alignment": "viewport",
+                    "text-size": 13
+                  }}
+                  paint={{
+                    "text-color": "#FFFFFF",
+                    "text-halo-color": "#0B4EB9",
+                    "text-halo-width": 1
+                  }}
+                />
+              )}
             </GeoJSONSource>
           </>
         )}
@@ -301,6 +392,74 @@ export default function CampusMapScreen() {
           </View>
         </View>
 
+        <View style={styles.searchArea}>
+          <View style={styles.searchBar}>
+            <TextInput
+              accessibilityLabel="호실 또는 장소 검색"
+              autoCapitalize="none"
+              autoCorrect={false}
+              onChangeText={(value) => {
+                setSearchQuery(value);
+                setSearchOpen(true);
+              }}
+              onFocus={() => setSearchOpen(true)}
+              placeholder="호실 또는 장소 검색"
+              placeholderTextColor="#7A8580"
+              returnKeyType="search"
+              style={styles.searchInput}
+              value={searchQuery}
+            />
+            {(hasSearchQuery || selectedRoom) && (
+              <Pressable
+                accessibilityLabel="검색 초기화"
+                accessibilityRole="button"
+                hitSlop={6}
+                onPress={resetSearch}
+                style={({ pressed }) => [
+                  styles.searchResetButton,
+                  pressed && styles.controlPressed
+                ]}
+              >
+                <Text style={styles.searchResetIcon}>×</Text>
+              </Pressable>
+            )}
+          </View>
+
+          {searchOpen && hasSearchQuery && (
+            <View style={styles.searchResults}>
+              {searchResults.length > 0 ? (
+                searchResults.map((room) => (
+                  <Pressable
+                    key={room.id}
+                    accessibilityLabel={`${room.roomNumber}호 ${room.name}, ${room.floor}층`}
+                    accessibilityRole="button"
+                    onPress={() => selectRoom(room)}
+                    style={({ pressed }) => [
+                      styles.searchResult,
+                      pressed && styles.searchResultPressed
+                    ]}
+                  >
+                    <View style={styles.searchResultText}>
+                      <Text style={styles.searchResultRoom}>{room.roomNumber}호</Text>
+                      <Text numberOfLines={1} style={styles.searchResultName}>
+                        {room.name}
+                      </Text>
+                    </View>
+                    <Text style={styles.searchResultFloor}>{room.floor}F</Text>
+                  </Pressable>
+                ))
+              ) : (
+                <View style={styles.noResults}>
+                  <Text style={styles.noResultsTitle}>검색 결과가 없습니다</Text>
+                  <Text style={styles.noResultsText}>
+                    호실 번호 또는 장소명을 확인해 주세요.
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+
         {indoor && (
           <View style={styles.floorSelector}>
             {FLOORS.map((item) => {
@@ -312,7 +471,7 @@ export default function CampusMapScreen() {
                   accessibilityLabel={`공학관 ${item}층`}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
-                  onPress={() => setFloor(item)}
+                  onPress={() => changeFloor(item)}
                   style={({ pressed }) => [
                     styles.floorButton,
                     selected && styles.floorButtonSelected,
@@ -374,6 +533,109 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: 8
+  },
+  searchArea: {
+    marginTop: 8,
+    maxWidth: 360,
+    width: "100%"
+  },
+  searchBar: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.97)",
+    borderColor: "#D4DBD8",
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    minHeight: 48,
+    paddingLeft: 14,
+    paddingRight: 6,
+    shadowColor: "#111827",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3
+  },
+  searchInput: {
+    color: "#1C2420",
+    flex: 1,
+    fontSize: 15,
+    minHeight: 46,
+    paddingVertical: 0
+  },
+  searchResetButton: {
+    alignItems: "center",
+    height: 40,
+    justifyContent: "center",
+    width: 40
+  },
+  searchResetIcon: {
+    color: "#66716C",
+    fontSize: 25,
+    lineHeight: 28
+  },
+  searchResults: {
+    backgroundColor: "rgba(255, 255, 255, 0.98)",
+    borderColor: "#D4DBD8",
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginTop: 4,
+    overflow: "hidden",
+    shadowColor: "#111827",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4
+  },
+  searchResult: {
+    alignItems: "center",
+    borderBottomColor: "#E6EBE8",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    minHeight: 54,
+    paddingHorizontal: 14,
+    paddingVertical: 8
+  },
+  searchResultPressed: {
+    backgroundColor: "#EEF4FD"
+  },
+  searchResultText: {
+    flex: 1,
+    minWidth: 0
+  },
+  searchResultRoom: {
+    color: "#1C2420",
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  searchResultName: {
+    color: "#66716C",
+    fontSize: 12,
+    marginTop: 2
+  },
+  searchResultFloor: {
+    backgroundColor: "#EAF2FE",
+    borderRadius: 5,
+    color: "#185FCB",
+    fontSize: 11,
+    fontWeight: "700",
+    marginLeft: 10,
+    overflow: "hidden",
+    paddingHorizontal: 7,
+    paddingVertical: 4
+  },
+  noResults: {
+    paddingHorizontal: 14,
+    paddingVertical: 16
+  },
+  noResultsTitle: {
+    color: "#25302B",
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  noResultsText: {
+    color: "#738078",
+    fontSize: 12,
+    marginTop: 4
   },
   title: {
     color: "#1C2420",
