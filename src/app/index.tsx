@@ -2,9 +2,9 @@ import {
   Camera,
   type CameraRef,
   GeoJSONSource,
-  ImageSource,
   Layer,
   Map,
+  type StyleSpecification,
   ViewAnnotation
 } from "@maplibre/maplibre-react-native";
 import { StatusBar } from "expo-status-bar";
@@ -14,15 +14,30 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   ENGINEERING_BUILDING,
-  ENGINEERING_CENTER,
-  ENGINEERING_FLOOR_BOUNDS,
-  ENGINEERING_FLOOR_COORDINATES,
-  ENGINEERING_FLOOR_IMAGES,
-  type EngineeringFloor
+  ENGINEERING_CENTER
 } from "../data/engineering-building";
+import {
+  ENGINEERING_FLOOR_BOUNDS,
+  ENGINEERING_FLOORS,
+  ENGINEERING_FLOOR_SHELL,
+  type EngineeringFloor
+} from "../data/engineering-floors";
 
-const CAMPUS_CENTER: [number, number] = [126.9964, 37.6118];
+const CAMPUS_CENTER = ENGINEERING_CENTER;
 const FLOORS: EngineeringFloor[] = [2, 1];
+const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
+const INDOOR_MAP_STYLE: StyleSpecification = {
+  version: 8,
+  glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  sources: {},
+  layers: [
+    {
+      id: "indoor-background",
+      type: "background",
+      paint: { "background-color": "#E9EEEC" }
+    }
+  ]
+};
 
 export default function CampusMapScreen() {
   const cameraRef = useRef<CameraRef>(null);
@@ -30,22 +45,34 @@ export default function CampusMapScreen() {
   const [indoor, setIndoor] = useState(false);
   const [floor, setFloor] = useState<EngineeringFloor>(1);
 
+  const syncCamera = () => {
+    if (indoor) {
+      cameraRef.current?.fitBounds(ENGINEERING_FLOOR_BOUNDS, {
+        bearing: 0,
+        duration: 550,
+        padding: { top: 96, right: 52, bottom: 144, left: 12 },
+        pitch: 36
+      });
+      return;
+    }
+
+    cameraRef.current?.easeTo({
+      bearing: 0,
+      center: CAMPUS_CENTER,
+      duration: 450,
+      padding: { top: 0, right: 0, bottom: 0, left: 0 },
+      pitch: 0,
+      zoom: 16
+    });
+  };
+
   const openEngineeringBuilding = () => {
     setIndoor(true);
     setFloor(1);
-    cameraRef.current?.fitBounds(ENGINEERING_FLOOR_BOUNDS, {
-      duration: 550,
-      padding: { top: 116, right: 72, bottom: 64, left: 24 }
-    });
   };
 
   const closeEngineeringBuilding = () => {
     setIndoor(false);
-    cameraRef.current?.easeTo({
-      center: CAMPUS_CENTER,
-      zoom: 16,
-      duration: 450
-    });
   };
 
   return (
@@ -53,7 +80,10 @@ export default function CampusMapScreen() {
       <StatusBar style="dark" />
       <Map
         style={styles.map}
-        mapStyle="https://demotiles.maplibre.org/style.json"
+        mapStyle={indoor ? INDOOR_MAP_STYLE : MAP_STYLE}
+        attribution={!indoor}
+        logo={false}
+        onDidFinishLoadingStyle={syncCamera}
         touchPitch={false}
         touchRotate={false}
       >
@@ -65,56 +95,184 @@ export default function CampusMapScreen() {
           }}
         />
 
-        <GeoJSONSource
-          id="engineering-building"
-          data={ENGINEERING_BUILDING}
-          hitbox={{ top: 16, right: 16, bottom: 16, left: 16 }}
-          onPress={indoor ? undefined : openEngineeringBuilding}
-        >
-          <Layer
-            id="engineering-building-fill"
-            type="fill"
-            paint={{
-              "fill-color": "#2F7EF7",
-              "fill-opacity": indoor ? 0 : 0.42
-            }}
-          />
-          <Layer
-            id="engineering-building-outline"
-            type="line"
-            paint={{
-              "line-color": "#165EC8",
-              "line-opacity": indoor ? 0 : 1,
-              "line-width": 2
-            }}
-          />
-        </GeoJSONSource>
-
         {!indoor && (
-          <ViewAnnotation
-            id="engineering-building-label"
-            lngLat={ENGINEERING_CENTER}
-            onPress={openEngineeringBuilding}
-          >
-            <View style={styles.buildingLabel}>
-              <Text style={styles.buildingLabelText}>공학관</Text>
-            </View>
-          </ViewAnnotation>
+          <>
+            <GeoJSONSource
+              id="engineering-building"
+              data={ENGINEERING_BUILDING}
+              hitbox={{ top: 16, right: 16, bottom: 16, left: 16 }}
+              onPress={openEngineeringBuilding}
+            >
+              <Layer
+                id="engineering-building-fill"
+                type="fill"
+                paint={{
+                  "fill-color": "#2F7EF7",
+                  "fill-opacity": 0.42
+                }}
+              />
+              <Layer
+                id="engineering-building-outline"
+                type="line"
+                paint={{
+                  "line-color": "#165EC8",
+                  "line-width": 2
+                }}
+              />
+            </GeoJSONSource>
+            <ViewAnnotation
+              id="engineering-building-label"
+              lngLat={ENGINEERING_CENTER}
+              onPress={openEngineeringBuilding}
+            >
+              <View style={styles.buildingLabel}>
+                <Text style={styles.buildingLabelText}>공학관</Text>
+              </View>
+            </ViewAnnotation>
+          </>
         )}
 
         {indoor && (
-          <ImageSource
-            key={floor}
-            id={`engineering-${floor}f`}
-            url={ENGINEERING_FLOOR_IMAGES[floor]}
-            coordinates={ENGINEERING_FLOOR_COORDINATES}
-          >
-            <Layer
-              id={`engineering-${floor}f-raster`}
-              type="raster"
-              paint={{ "raster-opacity": 1 }}
-            />
-          </ImageSource>
+          <>
+            <GeoJSONSource
+              id="engineering-floor-shell"
+              data={ENGINEERING_FLOOR_SHELL}
+            >
+              <Layer
+                id="engineering-floor-shell-shadow"
+                type="line"
+                paint={{
+                  "line-blur": 4,
+                  "line-color": "#65726C",
+                  "line-opacity": 0.2,
+                  "line-width": 7
+                }}
+              />
+              <Layer
+                id="engineering-floor-shell-fill"
+                type="fill"
+                paint={{ "fill-color": "#FBFCFC" }}
+              />
+              <Layer
+                id="engineering-floor-shell-outline"
+                type="line"
+                paint={{
+                  "line-color": "#9FAAA5",
+                  "line-width": 1.4
+                }}
+              />
+            </GeoJSONSource>
+
+            <GeoJSONSource
+              key={`spaces-${floor}`}
+              id={`engineering-${floor}f-spaces`}
+              data={ENGINEERING_FLOORS[floor].spaces}
+            >
+              <Layer
+                id={`engineering-${floor}f-fill`}
+                type="fill-extrusion"
+                paint={{
+                  "fill-extrusion-base": 0,
+                  "fill-extrusion-color": [
+                    "match",
+                    ["get", "kind"],
+                    "corridor",
+                    "#FFFFFF",
+                    "stairs",
+                    "#E8F0FC",
+                    "elevator",
+                    "#E4F3EA",
+                    "#F3F6F5"
+                  ],
+                  "fill-extrusion-height": [
+                    "match",
+                    ["get", "kind"],
+                    "corridor",
+                    0.2,
+                    "stairs",
+                    1.8,
+                    "elevator",
+                    4.2,
+                    3.2
+                  ],
+                  "fill-extrusion-opacity": 0.98,
+                  "fill-extrusion-vertical-gradient": true
+                }}
+              />
+              <Layer
+                id={`engineering-${floor}f-outline`}
+                type="line"
+                paint={{
+                  "line-color": [
+                    "match",
+                    ["get", "kind"],
+                    "corridor",
+                    "#D0D7D4",
+                    "stairs",
+                    "#7396C9",
+                    "elevator",
+                    "#67A17C",
+                    "#B4BFBA"
+                  ],
+                  "line-width": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    17,
+                    0.7,
+                    19,
+                    1.15
+                  ]
+                }}
+              />
+            </GeoJSONSource>
+
+            <GeoJSONSource
+              key={`labels-${floor}`}
+              id={`engineering-${floor}f-labels`}
+              data={ENGINEERING_FLOORS[floor].labels}
+            >
+              <Layer
+                id={`engineering-${floor}f-labels-layer`}
+                type="symbol"
+                layout={{
+                  "text-allow-overlap": false,
+                  "text-field": [
+                    "case",
+                    ["==", ["get", "kind"], "corridor"],
+                    "",
+                    ["get", "label"]
+                  ],
+                  "text-font": ["Noto Sans Regular"],
+                  "text-padding": 3,
+                  "text-pitch-alignment": "viewport",
+                  "text-rotation-alignment": "viewport",
+                  "text-size": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    17,
+                    8.5,
+                    19,
+                    12.5
+                  ]
+                }}
+                paint={{
+                  "text-color": [
+                    "match",
+                    ["get", "kind"],
+                    "stairs",
+                    "#496B9A",
+                    "elevator",
+                    "#3F7654",
+                    "#34413B"
+                  ],
+                  "text-halo-color": "#FFFFFF",
+                  "text-halo-width": 0.8
+                }}
+              />
+            </GeoJSONSource>
+          </>
         )}
       </Map>
 
@@ -174,19 +332,6 @@ export default function CampusMapScreen() {
             })}
           </View>
         )}
-
-        <View
-          style={[
-            styles.sourceBadge,
-            { marginBottom: Math.max(insets.bottom, 8) }
-          ]}
-        >
-          <Text style={styles.sourceText}>
-            {indoor
-              ? "도면: 국민대학교 공과대학"
-              : "건물 윤곽: OpenStreetMap contributors"}
-          </Text>
-        </View>
       </View>
     </View>
   );
@@ -203,55 +348,56 @@ const styles = StyleSheet.create({
   overlay: {
     bottom: 0,
     left: 0,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     position: "absolute",
     right: 0,
     top: 0
   },
   header: {
     alignItems: "center",
-    alignSelf: "stretch",
-    backgroundColor: "#FFFFFF",
-    borderColor: "#DDE2E6",
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255, 255, 255, 0.96)",
+    borderColor: "#D4DBD8",
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
-    minHeight: 56,
-    paddingHorizontal: 12,
+    minHeight: 52,
+    paddingHorizontal: 8,
     shadowColor: "#111827",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    width: 220,
+    elevation: 3
   },
   headerText: {
     flex: 1,
     justifyContent: "center",
-    paddingHorizontal: 4
+    paddingHorizontal: 8
   },
   title: {
-    color: "#171A1C",
-    fontSize: 17,
+    color: "#1C2420",
+    fontSize: 16,
     fontWeight: "700"
   },
   subtitle: {
-    color: "#687078",
-    fontSize: 12,
+    color: "#66716C",
+    fontSize: 11,
     marginTop: 2
   },
   backButton: {
     alignItems: "center",
-    height: 44,
+    height: 40,
     justifyContent: "center",
-    width: 44
+    width: 40
   },
   backIcon: {
-    color: "#171A1C",
-    fontSize: 34,
-    lineHeight: 36
+    color: "#1C2420",
+    fontSize: 31,
+    lineHeight: 33
   },
   buildingLabel: {
-    backgroundColor: "#171A1C",
+    backgroundColor: "#246BDE",
     borderColor: "#FFFFFF",
     borderRadius: 6,
     borderWidth: 2,
@@ -265,32 +411,32 @@ const styles = StyleSheet.create({
   },
   floorSelector: {
     alignSelf: "flex-end",
-    backgroundColor: "#FFFFFF",
-    borderColor: "#DDE2E6",
+    backgroundColor: "rgba(255, 255, 255, 0.97)",
+    borderColor: "#D4DBD8",
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
-    marginTop: 12,
+    marginTop: 8,
     overflow: "hidden",
     shadowColor: "#111827",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3
   },
   floorButton: {
     alignItems: "center",
-    borderBottomColor: "#E7EAED",
+    borderBottomColor: "#E2E7E5",
     borderBottomWidth: StyleSheet.hairlineWidth,
-    height: 48,
+    height: 44,
     justifyContent: "center",
-    width: 48
+    width: 44
   },
   floorButtonSelected: {
-    backgroundColor: "#171A1C"
+    backgroundColor: "#246BDE"
   },
   floorButtonText: {
-    color: "#515960",
-    fontSize: 14,
+    color: "#57625D",
+    fontSize: 13,
     fontWeight: "700"
   },
   floorButtonTextSelected: {
@@ -298,17 +444,5 @@ const styles = StyleSheet.create({
   },
   controlPressed: {
     opacity: 0.65
-  },
-  sourceBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    borderRadius: 4,
-    marginTop: "auto",
-    paddingHorizontal: 7,
-    paddingVertical: 4
-  },
-  sourceText: {
-    color: "#687078",
-    fontSize: 10
   }
 });

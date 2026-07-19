@@ -1,12 +1,8 @@
-import type { ImageSourceProps } from "@maplibre/maplibre-react-native";
-
 type BuildingProperties = {
   id: "engineering-building";
   kind: "building";
   name: "공학관";
 };
-
-export type EngineeringFloor = 1 | 2;
 
 // OpenStreetMap way 172918337 (ODbL), fetched 2026-07-13.
 export const ENGINEERING_BUILDING = {
@@ -68,21 +64,3 @@ export const ENGINEERING_BUILDING = {
 } satisfies GeoJSON.FeatureCollection<GeoJSON.Polygon, BuildingProperties>;
 
 export const ENGINEERING_CENTER: [number, number] = [126.99403, 37.61184];
-
-export const ENGINEERING_FLOOR_BOUNDS: [number, number, number, number] = [
-  126.992806, 37.610983, 126.995262, 37.612701
-];
-
-// ponytail: Four-corner approximation for the slice; replace with surveyed
-// control points before room geometry or routing depends on this alignment.
-export const ENGINEERING_FLOOR_COORDINATES = [
-  [126.992806, 37.612016],
-  [126.994654, 37.612701],
-  [126.995262, 37.611668],
-  [126.993414, 37.610983]
-] satisfies ImageSourceProps["coordinates"];
-
-export const ENGINEERING_FLOOR_IMAGES: Record<EngineeringFloor, number> = {
-  1: require("../../assets/floors/engineering-1f.png"),
-  2: require("../../assets/floors/engineering-2f.png")
-};
