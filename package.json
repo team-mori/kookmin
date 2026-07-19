@@ -9,6 +9,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "web:export": "expo export --platform web",
+    "route:check": "node --experimental-strip-types scripts/verify-indoor-route.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
