@@ -2,14 +2,29 @@
 node_modules/
 .next/
 out/
+dist/
+web-build/
 coverage/
 *.tsbuildinfo
+
+# Expo generated files
+.expo/
+expo-env.d.ts
+.metro-health-check*
+/ios/
+/android/
 
 # Local configuration and secrets
 .env
 .env.*
 !.env.example
 .vercel/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
 
 # Logs
 *.log

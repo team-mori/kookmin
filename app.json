@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "대국민지도",
+    "slug": "kookmin",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "kookmin",
+    "plugins": [
+      "expo-router",
+      "@maplibre/maplibre-react-native"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "android": {
+      "package": "com.anonymous.kookmin"
+    },
+    "ios": {
+      "bundleIdentifier": "com.anonymous.kookmin"
+    }
+  }
+}
