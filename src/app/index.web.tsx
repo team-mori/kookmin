@@ -7,6 +7,10 @@ import {
   type EngineeringFloor,
   type EngineeringSpaceKind
 } from "../data/engineering-floors";
+import {
+  searchEngineeringRooms,
+  type EngineeringRoomSearchResult
+} from "../data/engineering-search";
 
 const FLOORS: EngineeringFloor[] = [2, 1];
 const VIEWBOX_WIDTH = 960;
@@ -66,8 +70,31 @@ const polygonPoints = (
 
 export default function IndoorMapWebPreview() {
   const [floor, setFloor] = useState<EngineeringFloor>(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [selectedRoom, setSelectedRoom] =
+    useState<EngineeringRoomSearchResult | null>(null);
   const floorData = ENGINEERING_FLOORS[floor];
   const shell = ENGINEERING_FLOOR_SHELL.features[0].geometry.coordinates[0];
+  const searchResults = searchEngineeringRooms(searchQuery);
+  const hasSearchQuery = searchQuery.trim().length > 0;
+
+  const selectRoom = (room: EngineeringRoomSearchResult) => {
+    setFloor(room.floor);
+    setSelectedRoom(room);
+    setSearchOpen(false);
+  };
+
+  const resetSearch = () => {
+    setSearchQuery("");
+    setSearchOpen(false);
+    setSelectedRoom(null);
+  };
+
+  const changeFloor = (nextFloor: EngineeringFloor) => {
+    setFloor(nextFloor);
+    if (selectedRoom?.floor !== nextFloor) setSelectedRoom(null);
+  };
 
   return (
     <main className="app-shell">
@@ -81,6 +108,63 @@ export default function IndoorMapWebPreview() {
         </div>
       </header>
 
+      <section className="search-panel" aria-label="호실 검색">
+        <div className="search-bar">
+          <input
+            aria-label="호실 또는 장소 검색"
+            autoCapitalize="none"
+            autoComplete="off"
+            onChange={(event) => {
+              setSearchQuery(event.currentTarget.value);
+              setSearchOpen(true);
+            }}
+            onFocus={() => setSearchOpen(true)}
+            placeholder="호실 또는 장소 검색"
+            spellCheck={false}
+            type="search"
+            value={searchQuery}
+          />
+          {(hasSearchQuery || selectedRoom) && (
+            <button
+              aria-label="검색 초기화"
+              className="search-reset"
+              onClick={resetSearch}
+              type="button"
+            >
+              ×
+            </button>
+          )}
+        </div>
+
+        {searchOpen && hasSearchQuery && (
+          <div className="search-results" role="listbox">
+            {searchResults.length > 0 ? (
+              searchResults.map((room) => (
+                <button
+                  key={room.id}
+                  aria-label={`${room.roomNumber}호 ${room.name}, ${room.floor}층`}
+                  className="search-result"
+                  onClick={() => selectRoom(room)}
+                  role="option"
+                  type="button"
+                >
+                  <span>
+                    <strong>{room.roomNumber}호</strong>
+                    <small>{room.name}</small>
+                  </span>
+                  <b>{room.floor}F</b>
+                </button>
+              ))
+            ) : (
+              <div className="no-results">
+                <strong>검색 결과가 없습니다</strong>
+                <span>호실 번호 또는 장소명을 확인해 주세요.</span>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
       <nav className="floor-selector" aria-label="층 선택">
         {FLOORS.map((item) => (
           <button
@@ -88,7 +172,7 @@ export default function IndoorMapWebPreview() {
             aria-label={`공학관 ${item}층`}
             aria-pressed={item === floor}
             className={item === floor ? "selected" : undefined}
-            onClick={() => setFloor(item)}
+            onClick={() => changeFloor(item)}
             type="button"
           >
             {item}F
@@ -109,6 +193,9 @@ export default function IndoorMapWebPreview() {
           </pattern>
           <filter id="map-shadow" x="-20%" y="-20%" width="140%" height="150%">
             <feDropShadow dx="0" dy="12" floodColor="#53645B" floodOpacity="0.22" stdDeviation="12" />
+          </filter>
+          <filter id="selected-shadow" x="-30%" y="-30%" width="160%" height="170%">
+            <feDropShadow dx="0" dy="5" floodColor="#0B4EB9" floodOpacity="0.42" stdDeviation="5" />
           </filter>
         </defs>
 
@@ -134,11 +221,12 @@ export default function IndoorMapWebPreview() {
             const { id, kind } = feature.properties;
             const appearance = APPEARANCE[kind];
             const offset = kind === "corridor" ? 1.5 : kind === "elevator" ? 8 : 5;
+            const selected = id === selectedRoom?.id;
 
             return (
               <polygon
                 key={`${id}-side`}
-                fill={appearance.side}
+                fill={selected ? "#0B4EB9" : appearance.side}
                 opacity={kind === "corridor" ? 0.45 : 0.9}
                 points={polygonPoints(feature.geometry.coordinates[0], offset)}
               />
@@ -148,16 +236,18 @@ export default function IndoorMapWebPreview() {
           {floorData.spaces.features.map((feature) => {
             const { id, kind } = feature.properties;
             const appearance = APPEARANCE[kind];
+            const selected = id === selectedRoom?.id;
 
             return (
               <polygon
                 key={id}
-                className="space"
-                fill={appearance.fill}
+                className={selected ? "space selected" : "space"}
+                fill={selected ? "#2478F4" : appearance.fill}
+                filter={selected ? "url(#selected-shadow)" : undefined}
                 points={polygonPoints(feature.geometry.coordinates[0])}
-                stroke={appearance.stroke}
+                stroke={selected ? "#0B4EB9" : appearance.stroke}
                 strokeLinejoin="round"
-                strokeWidth={kind === "corridor" ? 1.2 : 1.5}
+                strokeWidth={selected ? 4 : kind === "corridor" ? 1.2 : 1.5}
               />
             );
           })}
@@ -168,18 +258,19 @@ export default function IndoorMapWebPreview() {
 
             const [x, y] = project(feature.geometry.coordinates);
             const fontSize = kind === "room" ? (label.length > 5 ? 8 : 10) : 9;
+            const selected = id === selectedRoom?.id;
 
             return (
               <text
                 key={`${id}-label`}
                 className={label.length > 5 ? "space-label compact" : "space-label"}
                 dominantBaseline="central"
-                fill={APPEARANCE[kind].text}
+                fill={selected ? "#FFFFFF" : APPEARANCE[kind].text}
                 fontSize={fontSize}
                 fontWeight="700"
                 paintOrder="stroke"
-                stroke="#FFFFFF"
-                strokeWidth="2.6"
+                stroke={selected ? "#0B4EB9" : "#FFFFFF"}
+                strokeWidth={selected ? 3.2 : 2.6}
                 textAnchor="middle"
                 x={x}
                 y={y}
@@ -210,6 +301,7 @@ const styles = `
   html, body, #root { width: 100%; height: 100%; margin: 0; }
   body { overflow: hidden; }
   button { font: inherit; }
+  input { font: inherit; }
 
   .app-shell {
     position: fixed;
@@ -238,6 +330,8 @@ const styles = `
     filter: brightness(.97);
     stroke-width: 2.4;
   }
+
+  .space.selected { stroke-width: 4; }
 
   .map-header {
     position: absolute;
@@ -268,6 +362,99 @@ const styles = `
     font-size: 10px;
     font-weight: 800;
   }
+
+  .search-panel {
+    position: absolute;
+    z-index: 3;
+    top: max(18px, env(safe-area-inset-top));
+    left: 50%;
+    width: min(360px, calc(100% - 24px));
+    transform: translateX(-50%);
+  }
+
+  .search-bar {
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+    padding: 0 5px 0 14px;
+    border: 1px solid #D0D9D4;
+    border-radius: 8px;
+    background: rgba(255,255,255,.97);
+    box-shadow: 0 8px 24px rgba(41,58,49,.12);
+    backdrop-filter: blur(14px);
+  }
+
+  .search-bar input {
+    min-width: 0;
+    min-height: 46px;
+    flex: 1;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #1D2822;
+    font-size: 16px;
+  }
+
+  .search-bar input::placeholder { color: #7A8580; }
+  .search-bar input::-webkit-search-cancel-button { display: none; }
+
+  .search-reset {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #66716C;
+    font-size: 25px;
+    line-height: 40px;
+    cursor: pointer;
+  }
+
+  .search-reset:hover { color: #1D2822; }
+  .search-reset:focus-visible { outline: 3px solid #8DB8FF; border-radius: 5px; }
+
+  .search-results {
+    max-height: 286px;
+    margin-top: 4px;
+    overflow-y: auto;
+    border: 1px solid #D0D9D4;
+    border-radius: 8px;
+    background: rgba(255,255,255,.98);
+    box-shadow: 0 10px 30px rgba(41,58,49,.16);
+  }
+
+  .search-result {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 54px;
+    padding: 8px 13px;
+    border: 0;
+    border-bottom: 1px solid #E6EBE8;
+    background: transparent;
+    color: #1D2822;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .search-result:last-child { border-bottom: 0; }
+  .search-result:hover, .search-result:focus-visible { background: #EEF4FD; outline: 0; }
+  .search-result > span { display: grid; min-width: 0; flex: 1; gap: 2px; }
+  .search-result strong { font-size: 14px; }
+  .search-result small { overflow: hidden; color: #66716C; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+  .search-result b {
+    margin-left: 10px;
+    padding: 4px 7px;
+    border-radius: 5px;
+    background: #EAF2FE;
+    color: #185FCB;
+    font-size: 11px;
+  }
+
+  .no-results { display: grid; gap: 4px; padding: 16px 14px; }
+  .no-results strong { font-size: 14px; }
+  .no-results span { color: #738078; font-size: 12px; }
 
   .map-header div {
     display: grid;
@@ -346,6 +533,12 @@ const styles = `
   @media (max-width: 560px) {
     .map-header { top: max(12px, env(safe-area-inset-top)); left: 12px; width: 210px; }
     .floor-selector { top: max(12px, env(safe-area-inset-top)); right: 12px; }
+    .search-panel {
+      top: calc(max(12px, env(safe-area-inset-top)) + 66px);
+      left: 12px;
+      width: calc(100% - 84px);
+      transform: none;
+    }
     .space-label { font-size: 18px; stroke-width: 3.5px; }
     .space-label.compact { font-size: 13px; }
     .map-legend {
