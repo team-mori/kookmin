@@ -8,6 +8,11 @@ import {
   type EngineeringSpaceKind
 } from "../data/engineering-floors";
 import {
+  ENGINEERING_DEMO_ROUTE,
+  ENGINEERING_ROUTE_DEMO,
+  toEngineeringRouteCoordinate
+} from "../data/engineering-route";
+import {
   searchEngineeringRooms,
   type EngineeringRoomSearchResult
 } from "../data/engineering-search";
@@ -16,6 +21,12 @@ const FLOORS: EngineeringFloor[] = [2, 1];
 const VIEWBOX_WIDTH = 960;
 const VIEWBOX_HEIGHT = 640;
 const [WEST, SOUTH, EAST, NORTH] = ENGINEERING_FLOOR_BOUNDS;
+const DEMO_ROUTE_MINUTES = Math.ceil(
+  ENGINEERING_DEMO_ROUTE.estimatedSeconds / 60
+);
+const DEMO_ROUTE_COORDINATES = ENGINEERING_DEMO_ROUTE.points.map(
+  toEngineeringRouteCoordinate
+);
 
 const APPEARANCE: Record<
   EngineeringSpaceKind,
@@ -70,6 +81,7 @@ const polygonPoints = (
 
 export default function IndoorMapWebPreview() {
   const [floor, setFloor] = useState<EngineeringFloor>(1);
+  const [routeVisible, setRouteVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] =
@@ -78,10 +90,19 @@ export default function IndoorMapWebPreview() {
   const shell = ENGINEERING_FLOOR_SHELL.features[0].geometry.coordinates[0];
   const searchResults = searchEngineeringRooms(searchQuery);
   const hasSearchQuery = searchQuery.trim().length > 0;
+  const [routeStartX, routeStartY] = project(DEMO_ROUTE_COORDINATES[0]);
+  const [routeEndX, routeEndY] = project(DEMO_ROUTE_COORDINATES.at(-1)!);
+
+  const showDemoRoute = () => {
+    setFloor(ENGINEERING_ROUTE_DEMO.floor);
+    setSelectedRoom(null);
+    setRouteVisible(true);
+  };
 
   const selectRoom = (room: EngineeringRoomSearchResult) => {
     setFloor(room.floor);
     setSelectedRoom(room);
+    setRouteVisible(false);
     setSearchOpen(false);
   };
 
@@ -93,6 +114,7 @@ export default function IndoorMapWebPreview() {
 
   const changeFloor = (nextFloor: EngineeringFloor) => {
     setFloor(nextFloor);
+    setRouteVisible(false);
     if (selectedRoom?.floor !== nextFloor) setSelectedRoom(null);
   };
 
@@ -194,6 +216,18 @@ export default function IndoorMapWebPreview() {
           <filter id="map-shadow" x="-20%" y="-20%" width="140%" height="150%">
             <feDropShadow dx="0" dy="12" floodColor="#53645B" floodOpacity="0.22" stdDeviation="12" />
           </filter>
+          <marker
+            id="route-chevron"
+            markerHeight="8"
+            markerUnits="userSpaceOnUse"
+            markerWidth="8"
+            orient="auto"
+            refX="7"
+            refY="4"
+            viewBox="0 0 8 8"
+          >
+            <path d="M1 1 L7 4 L1 7" fill="none" stroke="#FFFFFF" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+          </marker>
           <filter id="selected-shadow" x="-30%" y="-30%" width="160%" height="170%">
             <feDropShadow dx="0" dy="5" floodColor="#0B4EB9" floodOpacity="0.42" stdDeviation="5" />
           </filter>
@@ -252,6 +286,31 @@ export default function IndoorMapWebPreview() {
             );
           })}
 
+          {routeVisible && floor === ENGINEERING_ROUTE_DEMO.floor && (
+            <g aria-label="115호에서 107호까지 고정 데모 경로">
+              <polyline
+                className="route-casing"
+                fill="none"
+                points={polygonPoints(DEMO_ROUTE_COORDINATES)}
+              />
+              <polyline
+                className="route-line"
+                fill="none"
+                markerEnd="url(#route-chevron)"
+                markerMid="url(#route-chevron)"
+                points={polygonPoints(DEMO_ROUTE_COORDINATES)}
+              />
+              <circle className="route-marker start" cx={routeStartX} cy={routeStartY} r="9" />
+              <circle className="route-marker destination" cx={routeEndX} cy={routeEndY} r="9" />
+              <text className="route-marker-label" textAnchor="middle" x={routeStartX} y={routeStartY - 16}>
+                115 출발
+              </text>
+              <text className="route-marker-label" textAnchor="middle" x={routeEndX} y={routeEndY - 16}>
+                107 도착
+              </text>
+            </g>
+          )}
+
           {floorData.labels.features.map((feature) => {
             const { id, kind, label } = feature.properties;
             if (kind === "corridor") return null;
@@ -287,6 +346,24 @@ export default function IndoorMapWebPreview() {
         <span><i className="stairs" />계단</span>
         <span><i className="elevator" />엘리베이터</span>
       </aside>
+
+      <section aria-live="polite" className="route-bar">
+        <div>
+          <strong>고정 데모 · {ENGINEERING_ROUTE_DEMO.startLabel} → {ENGINEERING_ROUTE_DEMO.destinationLabel}</strong>
+          <span>
+            {routeVisible
+              ? `${Math.round(ENGINEERING_DEMO_ROUTE.distanceMeters)}m · 약 ${DEMO_ROUTE_MINUTES}분`
+              : "공학관 1층 실내 경로"}
+          </span>
+        </div>
+        <button
+          className={routeVisible ? "clear" : undefined}
+          onClick={routeVisible ? () => setRouteVisible(false) : showDemoRoute}
+          type="button"
+        >
+          {routeVisible ? "안내 종료" : "경로 보기"}
+        </button>
+      </section>
     </main>
   );
 }
@@ -331,6 +408,25 @@ const styles = `
     stroke-width: 2.4;
   }
 
+  .route-casing,
+  .route-line {
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .route-casing { stroke: #FFFFFF; stroke-width: 12; opacity: .96; }
+  .route-line { stroke: #1767E8; stroke-width: 7; }
+  .route-marker { stroke: #FFFFFF; stroke-width: 3; }
+  .route-marker.start { fill: #12A36D; }
+  .route-marker.destination { fill: #E64867; }
+  .route-marker-label {
+    fill: #17231D;
+    font-size: 12px;
+    font-weight: 800;
+    paint-order: stroke;
+    stroke: #FFFFFF;
+    stroke-width: 4px;
+  }
   .space.selected { stroke-width: 4; }
 
   .map-header {
@@ -525,6 +621,46 @@ const styles = `
   .map-legend i.stairs { background: #E6F0FF; border-color: #6F94C9; }
   .map-legend i.elevator { background: #DFF3E7; border-color: #5B9A70; }
 
+  .route-bar {
+    position: absolute;
+    z-index: 3;
+    left: 18px;
+    bottom: max(18px, env(safe-area-inset-bottom));
+    display: flex;
+    align-items: center;
+    width: min(410px, calc(100% - 36px));
+    min-height: 64px;
+    padding: 10px 11px 10px 14px;
+    border: 1px solid #CBD5D0;
+    border-radius: 8px;
+    background: rgba(255,255,255,.96);
+    box-shadow: 0 8px 24px rgba(36,52,44,.14);
+    backdrop-filter: blur(14px);
+  }
+
+  .route-bar div { display: grid; min-width: 0; flex: 1; gap: 4px; padding-right: 10px; }
+  .route-bar strong,
+  .route-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .route-bar strong { font-size: 13px; line-height: 17px; }
+  .route-bar span { color: #68756E; font-size: 11px; line-height: 15px; }
+  .route-bar button {
+    flex: 0 0 auto;
+    min-width: 84px;
+    height: 40px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 7px;
+    background: #1767E8;
+    color: #FFFFFF;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .route-bar button:hover { background: #0F58CF; }
+  .route-bar button.clear { background: #EDF1EF; color: #34413B; }
+  .route-bar button.clear:hover { background: #E1E7E4; }
+  .route-bar button:focus-visible { outline: 3px solid #8DB8FF; outline-offset: 2px; }
+
   @keyframes floor-in {
     from { opacity: 0; transform: translateY(5px); }
     to { opacity: 1; transform: translateY(0); }
@@ -541,12 +677,12 @@ const styles = `
     }
     .space-label { font-size: 18px; stroke-width: 3.5px; }
     .space-label.compact { font-size: 13px; }
-    .map-legend {
+    .map-legend { display: none; }
+    .route-bar {
       right: 12px;
       bottom: max(12px, env(safe-area-inset-bottom));
-      gap: 9px;
-      padding: 8px 9px;
-      font-size: 10px;
+      left: 12px;
+      width: auto;
     }
   }
 

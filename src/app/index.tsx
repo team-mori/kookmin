@@ -23,12 +23,63 @@ import {
   type EngineeringFloor
 } from "../data/engineering-floors";
 import {
+  ENGINEERING_DEMO_ROUTE,
+  ENGINEERING_ROUTE_DEMO,
+  toEngineeringRouteCoordinate
+} from "../data/engineering-route";
+import {
   searchEngineeringRooms,
   type EngineeringRoomSearchResult
 } from "../data/engineering-search";
 
 const CAMPUS_CENTER = ENGINEERING_CENTER;
 const FLOORS: EngineeringFloor[] = [2, 1];
+const DEMO_ROUTE_MINUTES = Math.ceil(
+  ENGINEERING_DEMO_ROUTE.estimatedSeconds / 60
+);
+const DEMO_ROUTE_LINE = {
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      properties: { id: "engineering-1f-demo-route" },
+      geometry: {
+        type: "LineString",
+        coordinates: ENGINEERING_DEMO_ROUTE.points.map(
+          toEngineeringRouteCoordinate
+        )
+      }
+    }
+  ]
+} satisfies GeoJSON.FeatureCollection<GeoJSON.LineString, { id: string }>;
+const DEMO_ROUTE_MARKERS = {
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      properties: { role: "start", label: "115 출발" },
+      geometry: {
+        type: "Point",
+        coordinates: toEngineeringRouteCoordinate(
+          ENGINEERING_DEMO_ROUTE.points[0]
+        )
+      }
+    },
+    {
+      type: "Feature",
+      properties: { role: "destination", label: "107 도착" },
+      geometry: {
+        type: "Point",
+        coordinates: toEngineeringRouteCoordinate(
+          ENGINEERING_DEMO_ROUTE.points.at(-1)!
+        )
+      }
+    }
+  ]
+} satisfies GeoJSON.FeatureCollection<
+  GeoJSON.Point,
+  { role: "start" | "destination"; label: string }
+>;
 const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
 const INDOOR_MAP_STYLE: StyleSpecification = {
   version: 8,
@@ -48,6 +99,7 @@ export default function CampusMapScreen() {
   const insets = useSafeAreaInsets();
   const [indoor, setIndoor] = useState(false);
   const [floor, setFloor] = useState<EngineeringFloor>(1);
+  const [routeVisible, setRouteVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] =
@@ -95,18 +147,27 @@ export default function CampusMapScreen() {
   const openEngineeringBuilding = () => {
     setIndoor(true);
     setFloor(1);
+    setRouteVisible(false);
     setSelectedRoom(null);
   };
 
   const closeEngineeringBuilding = () => {
     setIndoor(false);
+    setRouteVisible(false);
     setSelectedRoom(null);
+  };
+
+  const showDemoRoute = () => {
+    setFloor(ENGINEERING_ROUTE_DEMO.floor);
+    setSelectedRoom(null);
+    setRouteVisible(true);
   };
 
   const selectRoom = (room: EngineeringRoomSearchResult) => {
     setIndoor(true);
     setFloor(room.floor);
     setSelectedRoom(room);
+    setRouteVisible(false);
     setSearchOpen(false);
     focusRoom(room);
   };
@@ -119,6 +180,7 @@ export default function CampusMapScreen() {
 
   const changeFloor = (nextFloor: EngineeringFloor) => {
     setFloor(nextFloor);
+    setRouteVisible(false);
     if (selectedRoom?.floor !== nextFloor) setSelectedRoom(null);
   };
 
@@ -363,6 +425,84 @@ export default function CampusMapScreen() {
                 />
               )}
             </GeoJSONSource>
+
+            {routeVisible && floor === ENGINEERING_ROUTE_DEMO.floor && (
+              <>
+                <GeoJSONSource
+                  id="engineering-demo-route"
+                  data={DEMO_ROUTE_LINE}
+                >
+                  <Layer
+                    id="engineering-demo-route-casing"
+                    type="line"
+                    paint={{
+                      "line-color": "#FFFFFF",
+                      "line-opacity": 0.96,
+                      "line-width": 10
+                    }}
+                  />
+                  <Layer
+                    id="engineering-demo-route-line"
+                    type="line"
+                    paint={{
+                      "line-color": "#1767E8",
+                      "line-width": 6
+                    }}
+                  />
+                  <Layer
+                    id="engineering-demo-route-direction"
+                    type="symbol"
+                    layout={{
+                      "symbol-placement": "line",
+                      "symbol-spacing": 54,
+                      "text-field": "›",
+                      "text-font": ["Noto Sans Regular"],
+                      "text-keep-upright": false,
+                      "text-size": 15
+                    }}
+                    paint={{ "text-color": "#FFFFFF" }}
+                  />
+                </GeoJSONSource>
+
+                <GeoJSONSource
+                  id="engineering-demo-route-markers"
+                  data={DEMO_ROUTE_MARKERS}
+                >
+                  <Layer
+                    id="engineering-demo-route-marker-circles"
+                    type="circle"
+                    paint={{
+                      "circle-color": [
+                        "match",
+                        ["get", "role"],
+                        "start",
+                        "#12A36D",
+                        "#E64867"
+                      ],
+                      "circle-radius": 8,
+                      "circle-stroke-color": "#FFFFFF",
+                      "circle-stroke-width": 3
+                    }}
+                  />
+                  <Layer
+                    id="engineering-demo-route-marker-labels"
+                    type="symbol"
+                    layout={{
+                      "text-anchor": "bottom",
+                      "text-field": ["get", "label"],
+                      "text-font": ["Noto Sans Regular"],
+                      "text-offset": [0, -1.1],
+                      "text-size": 11
+                    }}
+                    paint={{
+                      "text-color": "#16211C",
+                      "text-halo-color": "#FFFFFF",
+                      "text-halo-width": 1.5
+                    }}
+                  />
+                </GeoJSONSource>
+              </>
+            )}
           </>
         )}
       </Map>
@@ -489,6 +629,40 @@ export default function CampusMapScreen() {
                 </Pressable>
               );
             })}
+          </View>
+        )}
+
+        {indoor && (
+          <View style={[styles.routeBar, { bottom: insets.bottom + 12 }]}>
+            <View style={styles.routeSummary}>
+              <Text numberOfLines={1} style={styles.routeTitle}>
+                고정 데모 · {ENGINEERING_ROUTE_DEMO.startLabel} → {ENGINEERING_ROUTE_DEMO.destinationLabel}
+              </Text>
+              <Text numberOfLines={1} style={styles.routeMeta}>
+                {routeVisible
+                  ? `${Math.round(ENGINEERING_DEMO_ROUTE.distanceMeters)}m · 약 ${DEMO_ROUTE_MINUTES}분`
+                  : "공학관 1층 실내 경로"}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityLabel={routeVisible ? "실내 경로 안내 종료" : "실내 경로 보기"}
+              accessibilityRole="button"
+              onPress={routeVisible ? () => setRouteVisible(false) : showDemoRoute}
+              style={({ pressed }) => [
+                styles.routeButton,
+                routeVisible && styles.routeButtonClear,
+                pressed && styles.controlPressed
+              ]}
+            >
+              <Text
+                style={[
+                  styles.routeButtonText,
+                  routeVisible && styles.routeButtonClearText
+                ]}
+              >
+                {routeVisible ? "안내 종료" : "경로 보기"}
+              </Text>
+            </Pressable>
           </View>
         )}
       </View>
@@ -703,6 +877,59 @@ const styles = StyleSheet.create({
   },
   floorButtonTextSelected: {
     color: "#FFFFFF"
+  },
+  routeBar: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.97)",
+    borderColor: "#CBD5D0",
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    left: 12,
+    minHeight: 62,
+    paddingHorizontal: 12,
+    position: "absolute",
+    right: 12,
+    shadowColor: "#111827",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 4
+  },
+  routeSummary: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 10
+  },
+  routeTitle: {
+    color: "#1C2822",
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  routeMeta: {
+    color: "#68756E",
+    fontSize: 11,
+    marginTop: 4
+  },
+  routeButton: {
+    alignItems: "center",
+    backgroundColor: "#1767E8",
+    borderRadius: 7,
+    height: 40,
+    justifyContent: "center",
+    minWidth: 82,
+    paddingHorizontal: 12
+  },
+  routeButtonClear: {
+    backgroundColor: "#EDF1EF"
+  },
+  routeButtonText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  routeButtonClearText: {
+    color: "#34413B"
   },
   controlPressed: {
     opacity: 0.65
