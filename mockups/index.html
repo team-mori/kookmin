@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>대국민지도 — 화면 시안 v6 (와이어프레임 문법 + 자체 변주)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
+<script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    /* 와이어프레임 문법 유지 + 자체 변주: 포인트를 캠퍼스 그린으로 (건물 유리는 실물대로 파랑) */
+    --brand: #0CA35B; --brand-soft: #DDF3E6; --cta: #1B1D1F;
+    --ink: #191F28; --sub: #8B95A1; --border: #E5E8EB; --card: #E9EAEB; --white: #FFF;
+    --shadow: 0 2px 10px rgba(25,31,40,.10);
+  }
+  svg.lucide { width: 19px; height: 19px; color: var(--sub); }
+  .fab svg.lucide { width: 22px; height: 22px; }
+  .fab.blue svg.lucide, .circ.on svg.lucide { color: #fff; }
+  .fab.white svg.lucide { color: var(--brand); }
+  .locrow svg.lucide { width: 12px; height: 12px; vertical-align: -2px; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Pretendard Variable", Pretendard, sans-serif; background: #EDEFF2; color: var(--ink);
+    display: flex; gap: 48px; padding: 48px; align-items: flex-start; width: max-content; }
+  .board { display: flex; flex-direction: column; gap: 12px; }
+  .board > h2 { font-size: 14px; font-weight: 600; color: var(--sub); text-align: center; }
+  .phone { position: relative; width: 393px; height: 852px; overflow: hidden;
+    background: var(--white); border-radius: 44px; outline: 10px solid #111; }
+  .map { position: absolute; inset: 0; }
+  .map::after { content: ""; position: absolute; inset: 0; z-index: 10;
+    background: #E4EDDA; opacity: .22; mix-blend-mode: multiply; pointer-events: none; }
+  .homebar { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    width: 140px; height: 5px; border-radius: 3px; background: #111; opacity: .9; z-index: 40; }
+  .statusbar { position: absolute; top: 0; left: 0; right: 0; height: 47px; z-index: 30;
+    display: flex; justify-content: space-between; align-items: flex-end;
+    padding: 0 30px 4px; font-size: 15px; font-weight: 600; pointer-events: none; }
+
+  /* ── 홈: 검색바 + 칩 행 ───────────────────── */
+  .searchbar { position: absolute; top: 12px; left: 12px; right: 12px; height: 56px; z-index: 20;
+    background: var(--white); border-radius: 18px; box-shadow: var(--shadow);
+    display: flex; align-items: center; gap: 12px; padding: 0 12px 0 16px; }
+  .searchbar .menu { display: flex; flex-direction: column; gap: 4px; width: 18px; }
+  .searchbar .menu i { height: 2px; background: var(--ink); border-radius: 1px; }
+  .searchbar .ph { font-size: 15px; color: var(--sub); flex: 1; }
+  .searchbar .mic { color: var(--sub); font-size: 17px; }
+  .searchbar .avatar { width: 32px; height: 32px; border-radius: 999px; background: var(--brand-soft);
+    color: var(--brand); font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .chips { position: absolute; top: 80px; left: 12px; right: 0; z-index: 20;
+    display: flex; gap: 8px; padding-right: 12px; }
+  .chip { height: 36px; padding: 0 16px; background: var(--white); border-radius: 999px;
+    box-shadow: var(--shadow); font-size: 14px; color: var(--ink);
+    display: flex; align-items: center; font-weight: 500; }
+  .chip.sel-bold { font-weight: 700; }
+  .chip.sel-dark { background: var(--cta); color: #fff; font-weight: 600; }
+  .chip.sel-blue { background: var(--brand); color: #fff; font-weight: 600; }
+
+  /* ── 홈: 마커·FAB ─────────────────────────── */
+  .count { position: absolute; z-index: 15; width: 36px; height: 36px; border-radius: 999px;
+    background: var(--white); box-shadow: var(--shadow); font-size: 14px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; }
+  .pin { position: absolute; z-index: 16; width: 40px; height: 40px; }
+  .pin .head { width: 40px; height: 40px; border-radius: 999px; background: var(--brand);
+    color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 10px rgba(12,163,91,.45); }
+  .pin .tail { position: absolute; left: 14px; bottom: -5px; width: 12px; height: 12px;
+    background: var(--brand); transform: rotate(45deg); border-radius: 2px; }
+  .medot { position: absolute; z-index: 14; width: 56px; height: 56px; border-radius: 999px;
+    background: rgba(12,163,91,.18); display: flex; align-items: center; justify-content: center; }
+  .medot i { width: 18px; height: 18px; border-radius: 999px; background: var(--brand); border: 3px solid #fff; }
+  .fab { position: absolute; right: 16px; z-index: 20; width: 52px; height: 52px; border-radius: 999px;
+    display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); font-size: 21px; }
+  .fab.white { background: var(--white); color: var(--brand); }
+  .fab.blue { background: var(--brand); color: #fff; }
+
+  /* ── 건물 상세 ────────────────────────────── */
+  .circ { width: 44px; height: 44px; border-radius: 999px; background: var(--white);
+    box-shadow: var(--shadow); display: flex; align-items: center; justify-content: center; font-size: 17px; }
+  .bd-top { position: absolute; top: 20px; left: 20px; right: 20px; z-index: 20;
+    display: flex; justify-content: space-between; }
+  .bd-top .r { display: flex; gap: 10px; }
+  .bd-head { position: absolute; top: 86px; left: 24px; right: 24px; z-index: 20; }
+  .bd-head .lab { font-size: 13px; color: var(--sub); }
+  .bd-head h1 { font-size: 34px; font-weight: 800; margin-top: 2px; }
+  .bd-head .cnt { font-size: 14px; color: var(--sub); margin-top: 6px; }
+  .bd-card { position: absolute; top: 214px; left: 19px; width: 355px; height: 320px;
+    background: var(--card); border-radius: 8px; z-index: 15; overflow: hidden; }
+  .bd-card svg { position: absolute; inset: 0; }
+  .fpill { position: absolute; z-index: 18; height: 32px; border-radius: 999px; background: var(--white);
+    box-shadow: var(--shadow); display: flex; align-items: center; padding: 0 12px; gap: 8px;
+    font-size: 13px; font-weight: 700; }
+  .fpill span { color: var(--sub); font-weight: 600; }
+  .fpill.blue { background: var(--brand); color: #fff; }
+  .fpill.blue span { color: rgba(255,255,255,.75); }
+  .fpill.blue::after { content: ""; position: absolute; left: 18px; bottom: -4px; width: 9px; height: 9px;
+    background: var(--brand); transform: rotate(45deg); border-radius: 1px; }
+  .bd-actions { position: absolute; top: 556px; left: 0; right: 0; z-index: 20;
+    display: flex; justify-content: center; gap: 14px; }
+  .bd-actions .circ.on { background: var(--brand); color: #fff; }
+  .bd-tabs { position: absolute; top: 636px; left: 20px; z-index: 20; display: flex; gap: 8px; }
+  .bd-list { position: absolute; top: 700px; left: 12px; right: 12px; z-index: 20;
+    background: var(--white); border-radius: 20px; box-shadow: var(--shadow); padding: 18px 20px; }
+  .bd-list .h { display: flex; justify-content: space-between; align-items: center; }
+  .bd-list .h b { font-size: 17px; font-weight: 700; }
+  .bd-list .h .go { width: 30px; height: 30px; border-radius: 999px; background: #F2F3F5;
+    display: flex; align-items: center; justify-content: center; color: var(--sub); font-size: 14px; }
+  .bd-list .s { font-size: 13px; color: var(--sub); margin-top: 2px; }
+  .bd-list .item { margin-top: 14px; }
+  .bd-list .item b { font-size: 15px; font-weight: 600; }
+  .bd-list .item .m { font-size: 13px; color: var(--sub); margin-top: 3px; }
+  .bd-list .item .m em { color: var(--brand); font-style: normal; font-weight: 600; }
+
+  /* ── 입면 뷰 ──────────────────────────────── */
+  .sky { position: absolute; inset: 0 0 auto 0; height: 560px;
+    background: linear-gradient(180deg, #AFC8E8 0%, #D4E2F2 55%, #EDF2F7 100%); }
+  .ele-head { position: absolute; top: 54px; left: 0; right: 0; z-index: 20; text-align: center; }
+  .ele-head .t { font-size: 17px; font-weight: 700; }
+  .ele-head .s { font-size: 12px; color: var(--sub); margin-top: 2px; }
+  .ele-head .back { position: absolute; left: 20px; top: 4px; font-size: 20px; }
+  .ele-head .more { position: absolute; right: 20px; top: 4px; font-size: 18px; color: var(--ink); }
+  .ele-badge { position: absolute; z-index: 18; min-width: 36px; height: 36px; padding: 0 9px;
+    border-radius: 999px; background: var(--white); box-shadow: var(--shadow);
+    font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .locrow { position: absolute; top: 480px; left: 0; right: 0; z-index: 20; padding: 14px 20px;
+    background: var(--white); display: flex; justify-content: space-between; align-items: flex-end;
+    border-bottom: 1px solid #F2F3F5; }
+  .locrow .l .k { font-size: 11px; color: var(--sub); }
+  .locrow .l .v { font-size: 15px; font-weight: 700; margin-top: 3px; }
+  .locrow .r { font-size: 13px; color: var(--brand); font-weight: 600; }
+  .ele-body { position: absolute; top: 543px; bottom: 0; left: 0; right: 0; background: var(--white); z-index: 15; }
+  .ele-chips { position: absolute; top: 560px; left: 0; right: 0; z-index: 20;
+    display: flex; gap: 8px; justify-content: center; }
+  .ele-chips .chip { box-shadow: none; border: 1px solid var(--border); }
+  .ele-chips .chip.sel-blue { border: none; }
+  .cta { position: absolute; left: 16px; right: 16px; bottom: 34px; height: 56px; z-index: 25;
+    background: var(--cta); color: #fff; border-radius: 14px; font-size: 16px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; }
+
+  /* ── 실내 층별 뷰 · 경로 (기존 화면 리스타일) ── */
+  .floorwrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: #F4F6F2; }
+  .floorwrap img { width: 100%; transform: translate(206px, 30px) scale(2.1); }
+  .room { fill: #FFFFFF; stroke: #DDE2E7; stroke-width: 1; }
+  .room.sel { fill: #DDF3E6; stroke: #0CA35B; stroke-width: 2; }
+  .corridor { fill: #EDF0EA; }
+  .core { fill: #E3E7E0; }
+  .rlabel { font-size: 11px; fill: #4E5968; font-weight: 500; text-anchor: middle; }
+  .rlabel.core { fill: #8B95A1; }
+  .backchip { position: absolute; top: 60px; left: 16px; z-index: 20; height: 44px;
+    background: var(--white); border-radius: 999px; box-shadow: var(--shadow);
+    display: flex; align-items: center; gap: 8px; padding: 0 16px 0 12px; font-size: 15px; font-weight: 600; }
+  .floors { position: absolute; right: 16px; top: 128px; z-index: 20; display: flex;
+    flex-direction: column; gap: 8px; }
+  .floors div { width: 44px; height: 44px; border-radius: 999px; background: var(--white);
+    box-shadow: var(--shadow); display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: var(--sub); }
+  .floors .on { background: var(--brand); color: #fff; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 25; background: var(--white);
+    border-radius: 20px 20px 0 0; box-shadow: 0 -4px 12px rgba(0,0,0,.08); padding: 8px 20px 34px; }
+  .grab { width: 36px; height: 4px; border-radius: 2px; background: var(--border); margin: 4px auto 14px; }
+  .sheet .title { font-size: 17px; font-weight: 700; }
+  .sheet .sub { font-size: 12px; color: var(--sub); margin-top: 3px; }
+  .actions { display: flex; gap: 8px; margin-top: 16px; }
+  .btn { flex: 1; height: 48px; border-radius: 14px; font-size: 15px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; }
+  .btn.primary { background: var(--cta); color: #fff; }
+  .btn.ghost { background: #F2F3F5; color: var(--ink); }
+  .btn.slim { flex: 0 0 48px; }
+  .floorchip { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); z-index: 22;
+    height: 40px; background: var(--cta); color: #fff; border-radius: 999px; padding: 0 16px;
+    display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; box-shadow: var(--shadow); }
+  .route-summary { display: flex; align-items: baseline; gap: 10px; margin-top: 4px; }
+  .route-summary .time { font-size: 28px; font-weight: 800; color: var(--brand); }
+  .route-summary .meta { font-size: 14px; color: var(--sub); }
+</style>
+</head>
+<body>
+
+<!-- 1. 홈 — 와이어프레임 140:337 레이아웃 그대로 -->
+<div class="board"><h2>1 · 홈 (교내 전체 지도)</h2>
+  <div class="phone">
+    <div id="map1" class="map"></div>
+    <div class="searchbar">
+      <i data-lucide="search"></i>
+      <span class="ph">건물 또는 호실을 검색해보세요</span>
+      <div class="avatar">K</div>
+    </div>
+    <div class="chips">
+      <div class="chip sel-blue">전체</div><div class="chip">강의실</div>
+      <div class="chip">편의시설</div><div class="chip">식당</div><div class="chip">정류장</div>
+    </div>
+    <div class="count" style="left: 76px; top: 218px;">12</div>
+    <div class="count" style="left: 272px; top: 345px;">8</div>
+    <div class="count" style="left: 96px; top: 522px;">5</div>
+    <div class="pin" style="left: 150px; top: 424px;"><div class="head">3</div><div class="tail"></div></div>
+    <div class="medot" style="left: 196px; top: 518px;"><i></i></div>
+    <div class="fab white" style="bottom: 128px;"><i data-lucide="locate-fixed"></i></div>
+    <div class="fab blue" style="bottom: 62px;"><i data-lucide="navigation"></i></div>
+    <div class="homebar"></div>
+  </div>
+</div>
+
+<!-- 2. 건물 상세 — 와이어프레임 140:690 레이아웃 그대로 -->
+<div class="board"><h2>2 · 건물 상세 (아이소메트릭 카드)</h2>
+  <div class="phone">
+    <div class="bd-top"><div class="circ"><i data-lucide="chevron-left"></i></div><div class="r"><div class="circ"><i data-lucide="bookmark"></i></div><div class="circ"><i data-lucide="ellipsis"></i></div></div></div>
+    <div class="bd-head">
+      <div class="lab">Building</div>
+      <h1>공학관</h1>
+      <div class="cnt">현재 76개의 장소가 등록되어 있습니다</div>
+    </div>
+    <div class="bd-card">
+      <!-- 미래관 아이소메트릭 (실물 매싱 기반 자리표시 렌더 — AI 생성물로 교체 예정) -->
+      <svg viewBox="0 0 355 320">
+        <defs>
+          <linearGradient id="glassV" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#6E93D6"/><stop offset="1" stop-color="#33528F"/>
+          </linearGradient>
+          <linearGradient id="glassGrid" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#8FB0E2"/><stop offset="1" stop-color="#4A6BAB"/>
+          </linearGradient>
+          <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="7"/>
+          </filter>
+        </defs>
+        <!-- 플랫폼 -->
+        <polygon points="177,120 327,195 177,270 27,195" fill="#F3F4F6"/>
+        <polygon points="27,195 177,270 177,281 27,206" fill="#DFE2E6"/>
+        <polygon points="327,195 177,270 177,281 327,206" fill="#E8EAED"/>
+        <!-- 건물 그림자 -->
+        <ellipse cx="182" cy="242" rx="132" ry="26" fill="#1B1D1F" opacity=".13" filter="url(#soft)"/>
+        <!-- 좌측 저층 윙 (3층) -->
+        <polygon points="77,188 77,133 32,155.5 32,210.5" fill="#E7EAEE"/>
+        <polygon points="77,188 77,133 117,113 117,168" fill="#F6F8FA"/>
+        <polygon points="77,133 117,113 72,90.5 32,110.5" fill="#FDFDFE" opacity="0"/>
+        <polygon points="32,155.5 77,133 117,113 72,90.5" fill="#FFFFFF"/>
+        <g fill="#C9D8EE"><polygon points="40,158 68,144 68,153 40,167"/><polygon points="40,174 68,160 68,169 40,183"/></g>
+        <g fill="#DCE8F8"><polygon points="84,136 110,123 110,132 84,145"/><polygon points="84,152 110,139 110,148 84,161"/></g>
+        <!-- 본관 (5층) -->
+        <polygon points="177,238 77,188 77,98 177,148" fill="#ECEFF2"/>
+        <polygon points="177,238 277,188 277,98 177,148" fill="#FAFBFC"/>
+        <polygon points="77,98 177,48 277,98 177,148" fill="#FFFFFF"/>
+        <!-- 좌측면 리본창 -->
+        <g fill="#C9D8EE">
+          <polygon points="86,116 168,157 168,166 86,125"/>
+          <polygon points="86,134 168,175 168,184 86,143"/>
+          <polygon points="86,152 168,193 168,202 86,161"/>
+          <polygon points="86,170 168,211 168,220 86,179"/>
+        </g>
+        <!-- 중앙 통유리 스트립 (정면) -->
+        <polygon points="212,142.5 232,132.5 232,215.5 212,225.5" fill="url(#glassV)"/>
+        <g stroke="#FFFFFF" stroke-width="1" opacity=".55">
+          <line x1="212" y1="160" x2="232" y2="150"/><line x1="212" y1="177" x2="232" y2="167"/>
+          <line x1="212" y1="194" x2="232" y2="184"/><line x1="212" y1="211" x2="232" y2="201"/>
+        </g>
+        <!-- 우측 커튼월 블록 (정면) -->
+        <polygon points="239,133 271,117 271,193 239,209" fill="url(#glassGrid)"/>
+        <g stroke="#FFFFFF" stroke-width="1" opacity=".65">
+          <line x1="239" y1="152" x2="271" y2="136"/><line x1="239" y1="171" x2="271" y2="155"/>
+          <line x1="239" y1="190" x2="271" y2="174"/>
+          <line x1="250" y1="127.5" x2="250" y2="203.5"/><line x1="260" y1="122.5" x2="260" y2="198.5"/>
+        </g>
+        <!-- 정면 석재 패널 창 -->
+        <g fill="#DCE8F8">
+          <polygon points="184,153 204,143 204,152 184,162"/>
+          <polygon points="184,171 204,161 204,170 184,180"/>
+          <polygon points="184,189 204,179 204,188 184,198"/>
+        </g>
+        <!-- 입구 계단 + 캐노피 -->
+        <polygon points="177,238 212,220.5 212,228.5 177,246" fill="#D8DCE1"/>
+        <polygon points="177,246 212,228.5 212,235.5 177,253" fill="#E3E6EA"/>
+        <polygon points="184,231 205,220.5 205,204 184,214.5" fill="#3D5C9E"/>
+        <!-- 나무 -->
+        <g><ellipse cx="52" cy="226" rx="12" ry="10" fill="#CBDCC4"/><rect x="50" y="233" width="4" height="11" fill="#B9C4B6"/></g>
+        <g><ellipse cx="305" cy="212" rx="10" ry="9" fill="#D6E4D0"/><rect x="303" y="218" width="4" height="9" fill="#B9C4B6"/></g>
+        <g><ellipse cx="252" cy="238" rx="9" ry="8" fill="#CBDCC4"/><rect x="250" y="243" width="3.5" height="8" fill="#B9C4B6"/></g>
+      </svg>
+    </div>
+    <div class="fpill" style="top: 268px; left: 168px;">2F <span>39</span></div>
+    <div class="fpill blue" style="top: 342px; left: 118px;">1F <span>37</span></div>
+    <div class="bd-actions">
+      <div class="circ"><i data-lucide="refresh-cw"></i></div><div class="circ"><i data-lucide="layers"></i></div><div class="circ on"><i data-lucide="info"></i></div><div class="circ"><i data-lucide="locate"></i></div>
+    </div>
+    <div class="bd-tabs">
+      <div class="chip sel-dark">전체</div><div class="chip">강의실</div>
+      <div class="chip">시설</div><div class="chip">계단·EV</div>
+    </div>
+    <div class="bd-list">
+      <div class="h"><b>공학관 · 1층</b><div class="go"><i data-lucide="chevron-right"></i></div></div>
+      <div class="s">이 층의 주요 장소</div>
+      <div class="item"><b>115호 재료시험실</b>
+        <div class="m">실습실 · <em>지도에서 보기</em></div></div>
+    </div>
+    <div class="homebar"></div>
+  </div>
+</div>
+
+<!-- 3. 입면 층 선택 — 와이어프레임 175:360 레이아웃 그대로 -->
+<div class="board"><h2>3 · 층 선택 (건물 입면)</h2>
+  <div class="phone">
+    <div class="sky"></div>
+    <div class="statusbar"><span>9:41</span>
+      <svg width="46" height="12" viewBox="0 0 46 12"><rect x="0" y="2" width="16" height="8" rx="2" fill="none" stroke="#191F28" stroke-opacity=".4"/><rect x="2" y="4" width="10" height="4" rx="1" fill="#191F28"/><path d="M24 10 L29 4 L34 10 Z" fill="#191F28"/><rect x="38" y="3" width="2.5" height="7" rx="1" fill="#191F28"/><rect x="42" y="1" width="2.5" height="9" rx="1" fill="#191F28"/></svg>
+    </div>
+    <div class="ele-head">
+      <span class="back"><i data-lucide="chevron-left"></i></span>
+      <div class="t">대국민지도</div><div class="s">공학관 실내지도</div>
+      <span class="more"><i data-lucide="ellipsis-vertical"></i></span>
+    </div>
+    <!-- 미래관 정면 입면 (실물 파사드 기반 자리표시 렌더 — AI 생성물로 교체 예정) -->
+    <svg style="position:absolute; top:118px; left:24px; z-index:16" width="345" height="356" viewBox="0 0 345 356">
+      <defs>
+        <linearGradient id="eleStrip" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#5F87CF"/><stop offset="1" stop-color="#2E4C87"/>
+        </linearGradient>
+        <linearGradient id="eleGrid" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#9CBAE8"/><stop offset="1" stop-color="#5372B0"/>
+        </linearGradient>
+      </defs>
+      <!-- 좌측 저층 윙 -->
+      <rect x="6" y="150" width="60" height="186" fill="#F0F2EF" stroke="#E3E6E2"/>
+      <g fill="#C9D8EE">
+        <rect x="14" y="164" width="44" height="14" rx="2"/><rect x="14" y="204" width="44" height="14" rx="2"/>
+        <rect x="14" y="244" width="44" height="14" rx="2"/><rect x="14" y="284" width="44" height="14" rx="2"/>
+      </g>
+      <!-- 본관 석재 파사드 -->
+      <rect x="66" y="60" width="174" height="276" fill="#FAFAF8" stroke="#E6E6E1"/>
+      <g stroke="#ECECe7" stroke-width="1">
+        <line x1="66" y1="115" x2="240" y2="115"/><line x1="66" y1="170" x2="240" y2="170"/>
+        <line x1="66" y1="225" x2="240" y2="225"/><line x1="66" y1="280" x2="240" y2="280"/>
+      </g>
+      <g fill="#A8C7F0">
+        <rect x="80" y="78" width="30" height="20" rx="2"/><rect x="118" y="78" width="30" height="20" rx="2"/>
+        <rect x="80" y="133" width="30" height="20" rx="2"/><rect x="118" y="133" width="30" height="20" rx="2"/>
+        <rect x="80" y="188" width="30" height="20" rx="2"/><rect x="118" y="188" width="30" height="20" rx="2"/>
+        <rect x="80" y="243" width="30" height="20" rx="2"/><rect x="118" y="243" width="30" height="20" rx="2"/>
+        <rect x="200" y="78" width="30" height="20" rx="2"/><rect x="200" y="133" width="30" height="20" rx="2"/>
+        <rect x="200" y="188" width="30" height="20" rx="2"/><rect x="200" y="243" width="30" height="20" rx="2"/>
+      </g>
+      <!-- 중앙 통유리 타워 스트립 -->
+      <rect x="152" y="30" width="42" height="306" fill="url(#eleStrip)"/>
+      <rect x="150" y="24" width="46" height="8" rx="2" fill="#D9DCE0"/>
+      <g stroke="#FFFFFF" stroke-width="1.2" opacity=".5">
+        <line x1="152" y1="88" x2="194" y2="88"/><line x1="152" y1="146" x2="194" y2="146"/>
+        <line x1="152" y1="204" x2="194" y2="204"/><line x1="152" y1="262" x2="194" y2="262"/>
+        <line x1="173" y1="30" x2="173" y2="336"/>
+      </g>
+      <!-- 우측 커튼월 블록 -->
+      <rect x="240" y="84" width="99" height="252" fill="#F5F6F4" stroke="#E6E6E1"/>
+      <rect x="250" y="96" width="79" height="240" fill="url(#eleGrid)"/>
+      <g stroke="#FFFFFF" stroke-width="1.2" opacity=".6">
+        <line x1="250" y1="136" x2="329" y2="136"/><line x1="250" y1="176" x2="329" y2="176"/>
+        <line x1="250" y1="216" x2="329" y2="216"/><line x1="250" y1="256" x2="329" y2="256"/><line x1="250" y1="296" x2="329" y2="296"/>
+        <line x1="276" y1="96" x2="276" y2="336"/><line x1="303" y1="96" x2="303" y2="336"/>
+      </g>
+      <!-- 입구: 계단 + 유리문 -->
+      <rect x="158" y="288" width="30" height="48" fill="#24406F"/>
+      <rect x="171.5" y="288" width="3" height="48" fill="#FFFFFF" opacity=".4"/>
+      <rect x="120" y="336" width="110" height="7" fill="#E2E5E9"/>
+      <rect x="112" y="343" width="126" height="7" fill="#EAEDF0"/>
+      <rect x="104" y="350" width="142" height="6" fill="#F1F3F5"/>
+    </svg>
+    <div class="ele-badge" style="top: 142px; left: 176px;">2F · 39</div>
+    <div class="ele-badge" style="top: 258px; left: 88px;">1F · 37</div>
+    <div class="ele-badge" style="top: 388px; left: 196px;">B1</div>
+    <div class="locrow">
+      <div class="l"><div class="k"><i data-lucide="map-pin"></i> 위치 정보</div><div class="v">공학관</div></div>
+      <div class="r">지도에서 위치 확인 ›</div>
+    </div>
+    <div class="ele-body"></div>
+    <div class="ele-chips">
+      <div class="chip sel-blue">전체</div><div class="chip">강의실</div>
+      <div class="chip">시설</div><div class="chip">기타</div>
+    </div>
+    <div class="cta">보러 가기</div>
+    <div class="homebar"></div>
+  </div>
+</div>
+
+<!-- 4. 실내 층별 뷰 -->
+<div class="board"><h2>4 · 실내 층별 뷰 (공학관 1F)</h2>
+  <div class="phone">
+    <div class="floorwrap"><img src="floor1.svg" alt="공학관 1F 도면"/></div>
+    <div class="backchip"><i data-lucide="chevron-left"></i> 공학관 · 1F</div>
+    <div class="floors"><div>2F</div><div class="on">1F</div><div>B1</div></div>
+    <div class="sheet">
+      <div class="grab"></div>
+      <div class="title">115호</div>
+      <div class="sub">재료시험실 · 공학관 1층</div>
+      <div class="actions">
+        <div class="btn primary">출발</div>
+        <div class="btn ghost">도착</div>
+        <div class="btn ghost slim"><i data-lucide="arrow-up-right"></i></div>
+      </div>
+    </div>
+    <div class="homebar"></div>
+  </div>
+</div>
+
+<!-- 5. 경로 안내 -->
+<div class="board"><h2>5 · 경로 안내 (실내 구간)</h2>
+  <div class="phone">
+    <div class="floorwrap"><img src="floor1-route.svg" alt="공학관 1F 경로"/></div>
+    <div class="floorchip">1F → 2F <i data-lucide="chevron-up" style="color:#fff; opacity:.6; width:15px; height:15px;"></i></div>
+    <div class="floors" style="top: 118px;"><div>2F</div><div class="on">1F</div><div>B1</div></div>
+    <div class="sheet">
+      <div class="grab"></div>
+      <div class="route-summary"><span class="time">7분</span><span class="meta">320m · 층 이동 1회</span></div>
+      <div class="sub" style="margin-top: 6px;">115호 → 246호 · 엘리베이터 경유</div>
+      <div class="actions"><div class="btn ghost">종료</div></div>
+    </div>
+    <div class="homebar"></div>
+  </div>
+</div>
+
+<script>
+  const KMU = [126.9967, 37.6108];
+  const style = "https://tiles.openfreemap.org/styles/positron";
+  new maplibregl.Map({ container: "map1", style, center: KMU, zoom: 16.2,
+    attributionControl: false, interactive: false });
+  lucide.createIcons();
+</script>
+</body>
+</html>

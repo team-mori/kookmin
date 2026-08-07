@@ -34,3 +34,10 @@ expo-env.d.ts
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local-only artifacts
+.playwright-mcp/
+알파프로젝트신청서.pdf
+mockups/reference/*.png
+mockups/reference/*.jpg
+mockups/reference/*.webp
