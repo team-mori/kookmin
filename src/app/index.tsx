@@ -25,12 +25,12 @@ import { Icon } from "@/shared/components/Icon";
 import { EmptyState } from "@/shared/components/empty-state";
 import { theme } from "@/shared/styles";
 
-import { ENGINEERING_BUILDING } from "../data/engineering-building";
+import { ENGINEERING_BUILDING } from "../data/buildings/engineering";
 import {
   ENGINEERING_FLOORS,
   ENGINEERING_FLOOR_SHELL,
   type EngineeringFloor
-} from "../data/engineering-floors";
+} from "../data/buildings/engineering";
 import {
   engineeringRouteToGeoJSON,
   findEngineeringRoute,

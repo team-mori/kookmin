@@ -3,8 +3,8 @@ import type {
   LayerSpecification
 } from "@maplibre/maplibre-gl-style-spec";
 
-import { ENGINEERING_CENTER } from "../data/engineering-building.ts";
-import type { EngineeringFloor } from "../data/engineering-floors.ts";
+import { ENGINEERING_CENTER } from "../data/buildings/engineering.ts";
+import type { EngineeringFloor } from "../data/buildings/engineering.ts";
 
 // One basemap for every zoom level; the interior is revealed by zooming, not
 // by swapping styles.

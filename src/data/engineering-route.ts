@@ -3,7 +3,7 @@ import {
   engineeringPlanToWgs84,
   type EngineeringFloor,
   type EngineeringSpaceInfo
-} from "./engineering-floors.ts";
+} from "./buildings/engineering.ts";
 
 export type PlanPoint = readonly [x: number, y: number];
 

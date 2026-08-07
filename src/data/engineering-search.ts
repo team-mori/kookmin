@@ -1,7 +1,7 @@
 import {
   ENGINEERING_FLOORS,
   type EngineeringFloor
-} from "./engineering-floors.ts";
+} from "./buildings/engineering.ts";
 
 export type EngineeringRoomSearchResult = {
   id: string;
