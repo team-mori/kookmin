@@ -603,7 +603,7 @@ const styles = `
     width: 38px;
     height: 38px;
     border-radius: 7px;
-    background: #1767E8;
+    background: #0CA35B;
     color: white;
     font-size: 10px;
     font-weight: 800;
@@ -704,7 +704,7 @@ const styles = `
   }
 
   .search-result:last-child { border-bottom: 0; }
-  .search-result:hover, .search-result:focus-visible { background: #EEF4FD; outline: 0; }
+  .search-result:hover, .search-result:focus-visible { background: #EAF9F1; outline: 0; }
   .search-result > span { display: grid; min-width: 0; flex: 1; gap: 2px; }
   .search-result strong { font-size: 14px; }
   .search-result small { overflow: hidden; color: #66716C; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
@@ -748,7 +748,7 @@ const styles = `
 
   .floor-selector button:last-child { border-bottom: 0; }
   .floor-selector button:hover { background: #F2F5F3; }
-  .floor-selector button.selected { background: #1767E8; color: white; }
+  .floor-selector button.selected { background: #0CA35B; color: white; }
   .floor-selector button:focus-visible { outline: 3px solid #8DB8FF; outline-offset: -3px; }
 
   .pending-chip {
@@ -761,7 +761,7 @@ const styles = `
     gap: 8px;
     padding: 9px 8px 9px 14px;
     border-radius: 999px;
-    background: #123E8F;
+    background: #087540;
     box-shadow: 0 6px 18px rgba(18,62,143,.3);
     color: white;
     font-size: 12px;
@@ -812,7 +812,7 @@ const styles = `
     padding: 0 12px;
     border: 0;
     border-radius: 7px;
-    background: #1767E8;
+    background: #0CA35B;
     color: white;
     font-size: 13px;
     font-weight: 700;
@@ -820,7 +820,7 @@ const styles = `
   }
 
   .room-card button:hover { background: #0F58CF; }
-  .room-card button.ghost { background: #EAF2FE; color: #185FCB; }
+  .room-card button.ghost { background: #DDF3E6; color: #0A8C4E; }
   .room-card button.ghost:hover { background: #DBE9FD; }
   .room-card button.close {
     min-width: 32px;
@@ -898,7 +898,7 @@ const styles = `
   }
 
   .step-list button:hover { background: #F3F7F5; }
-  .step-list button.active { background: #EEF4FD; color: #123E8F; font-weight: 700; }
+  .step-list button.active { background: #EAF9F1; color: #087540; font-weight: 700; }
   .step-list i {
     width: 22px;
     color: #5A6660;

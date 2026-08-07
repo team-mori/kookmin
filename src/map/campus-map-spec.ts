@@ -99,7 +99,7 @@ export const buildingLayerSpecs = (): LayerSpecification[] => [
     type: "fill",
     source: SOURCE_IDS.building,
     paint: {
-      "fill-color": "#2F7EF7",
+      "fill-color": "#45BC81",
       "fill-opacity": [
         "interpolate",
         ["linear"],
@@ -118,7 +118,7 @@ export const buildingLayerSpecs = (): LayerSpecification[] => [
     type: "line",
     source: SOURCE_IDS.building,
     paint: {
-      "line-color": "#165EC8",
+      "line-color": "#0A8C4E",
       "line-width": 2,
       "line-opacity": revealOut(1)
     }
@@ -136,7 +136,7 @@ export const buildingLabelLayerSpecs = (): LayerSpecification[] => [
       "text-size": ["interpolate", ["linear"], ["zoom"], 15, 13.5, 17, 15.5]
     },
     paint: {
-      "text-color": "#1252B8",
+      "text-color": "#087540",
       "text-halo-color": "#FFFFFF",
       "text-halo-width": 1.8,
       "text-opacity": revealOut(1)
@@ -196,7 +196,7 @@ export const floorSpaceLayerSpecs = (
         "corridor",
         "#FFFFFF",
         "stairs",
-        "#E8F0FC",
+        "#DDF3E6",
         "elevator",
         "#E4F3EA",
         "#F3F6F5"
@@ -228,7 +228,7 @@ export const floorSpaceLayerSpecs = (
         "corridor",
         "#D0D7D4",
         "stairs",
-        "#7396C9",
+        "#45BC81",
         "elevator",
         "#67A17C",
         "#B4BFBA"
@@ -253,7 +253,7 @@ export const floorSpaceLayerSpecs = (
     filter: selectedFilter(selectedRoomId),
     paint: {
       "fill-extrusion-base": 0,
-      "fill-extrusion-color": "#2478F4",
+      "fill-extrusion-color": "#0CA35B",
       "fill-extrusion-height": 5.4,
       "fill-extrusion-opacity": revealIn(1)
     }
@@ -265,7 +265,7 @@ export const floorSpaceLayerSpecs = (
     minzoom: INDOOR_MIN_ZOOM,
     filter: selectedFilter(selectedRoomId),
     paint: {
-      "line-color": "#0B4EB9",
+      "line-color": "#087540",
       "line-width": 3,
       "line-opacity": revealIn(1)
     }
@@ -299,7 +299,7 @@ export const floorLabelLayerSpecs = (
         "match",
         ["get", "kind"],
         "stairs",
-        "#496B9A",
+        "#0A8C4E",
         "elevator",
         "#3F7654",
         "#34413B"
@@ -333,7 +333,7 @@ export const floorLabelLayerSpecs = (
     },
     paint: {
       "text-color": "#FFFFFF",
-      "text-halo-color": "#0B4EB9",
+      "text-halo-color": "#087540",
       "text-halo-width": 1,
       "text-opacity": revealIn(1)
     }
@@ -387,7 +387,7 @@ export const routeLineLayerSpecs = (
     filter: floorFilter(floor, true),
     layout: { "line-cap": "round", "line-join": "round" },
     paint: {
-      "line-color": "#1767E8",
+      "line-color": "#0CA35B",
       "line-width": 6,
       "line-opacity": revealIn(1)
     }
@@ -427,7 +427,7 @@ export const routeMarkerLayerSpecs = (
         "match",
         ["get", "role"],
         "start",
-        "#12A36D",
+        "#0CA35B",
         "floor-change",
         "#F0980B",
         "#E64867"
