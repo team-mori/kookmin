@@ -1,5 +1,6 @@
 import {
   ENGINEERING_SPACES,
+  engineeringPlanToWgs84,
   type EngineeringFloor,
   type EngineeringSpaceInfo
 } from "./engineering-floors.ts";
@@ -53,18 +54,9 @@ export type IndoorRoute = {
   estimatedSeconds: number;
 };
 
-const METERS_PER_LATITUDE_DEGREE = 111_320;
-const ROUTE_RENDER_ANCHOR = [126.99403, 37.61184] as const;
-const METERS_PER_LONGITUDE_DEGREE =
-  METERS_PER_LATITUDE_DEGREE *
-  Math.cos((ROUTE_RENDER_ANCHOR[1] * Math.PI) / 180);
-
-export const toEngineeringRouteCoordinate = (
-  [x, y]: PlanPoint
-): [number, number] => [
-  ROUTE_RENDER_ANCHOR[0] + x / METERS_PER_LONGITUDE_DEGREE,
-  ROUTE_RENDER_ANCHOR[1] + y / METERS_PER_LATITUDE_DEGREE
-];
+// 도면 앵커·변환은 floors 모듈이 단일 소유한다 (복제 금지 — 앵커가 어긋나면 경로선이 도면에서 밀린다).
+export const toEngineeringRouteCoordinate = ([x, y]: PlanPoint): [number, number] =>
+  engineeringPlanToWgs84([x, y]) as [number, number];
 
 // Corridor centerlines the whole graph hangs off: two horizontal spines and
 // one vertical connector through the center corridor.

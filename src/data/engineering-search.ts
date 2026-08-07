@@ -11,8 +11,8 @@ export type EngineeringRoomSearchResult = {
   center: [number, number];
 };
 
-const ROOM_SEARCH_INDEX: EngineeringRoomSearchResult[] = ([1, 2] as const)
-  .flatMap((floor) => {
+const ROOM_SEARCH_INDEX: EngineeringRoomSearchResult[] = [1, 2]
+  .flatMap((floor: EngineeringFloor) => {
     const labelsById = new Map(
       ENGINEERING_FLOORS[floor].labels.features.map((feature) => [
         feature.properties.id,

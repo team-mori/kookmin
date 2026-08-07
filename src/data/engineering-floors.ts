@@ -1,6 +1,7 @@
 import { ENGINEERING_CENTER } from "./engineering-building.ts";
 
-export type EngineeringFloor = 1 | 2;
+// 지하층은 음수(B1 = -1). 층 목록은 데이터에서 파생한다.
+export type EngineeringFloor = number;
 
 export type EngineeringSpaceKind =
   | "room"
@@ -49,7 +50,6 @@ const METERS_PER_LATITUDE_DEGREE = 111_320;
 const METERS_PER_LONGITUDE_DEGREE =
   METERS_PER_LATITUDE_DEGREE *
   Math.cos((RENDER_ANCHOR[1] * Math.PI) / 180);
-const FLOOR_EXTENT: LocalBounds = [-68, -44, 68, 44];
 const FLOOR_SHELL_PLAN_XY: readonly (readonly [number, number])[] = [
   [-68, 44],
   [68, 44],
@@ -186,6 +186,9 @@ const toWgs84 = ([x, y]: readonly [number, number]): GeoJSON.Position => [
   RENDER_ANCHOR[1] + y / METERS_PER_LATITUDE_DEGREE
 ];
 
+// 라우팅 등 다른 모듈이 같은 앵커로 변환하도록 단일 공개 지점.
+export const engineeringPlanToWgs84 = toWgs84;
+
 export const ENGINEERING_FLOOR_SHELL = {
   type: "FeatureCollection",
   features: [
@@ -287,13 +290,3 @@ export const ENGINEERING_SPACES: readonly EngineeringSpaceInfo[] = (
   }))
 );
 
-const [west, south, east, north] = FLOOR_EXTENT;
-const southWest = toWgs84([west, south]);
-const northEast = toWgs84([east, north]);
-
-export const ENGINEERING_FLOOR_BOUNDS: [number, number, number, number] = [
-  southWest[0],
-  southWest[1],
-  northEast[0],
-  northEast[1]
-];
