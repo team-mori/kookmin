@@ -2,12 +2,15 @@ import maplibregl from "maplibre-gl";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { ENGINEERING_BUILDING } from "../data/buildings/engineering";
+import type { EngineeringFloor } from "../data/buildings/engineering";
 import {
-  ENGINEERING_FLOORS,
-  ENGINEERING_FLOOR_SHELL,
-  type EngineeringFloor
-} from "../data/buildings/engineering";
+  buildingNear,
+  CAMPUS_BUILDINGS_GEOJSON,
+  CAMPUS_LABELS_GEOJSON,
+  findBuilding,
+  floorLabel
+} from "../data/campus";
+import { indoorDataFor } from "../data/indoor-geometry";
 import {
   engineeringRouteToGeoJSON,
   findEngineeringRoute,
@@ -42,8 +45,6 @@ import {
   routeMarkerLayerSpecs
 } from "../map/campus-map-spec";
 
-const FLOORS: EngineeringFloor[] = [2, 1];
-
 const STEP_ICONS: Record<IndoorRouteStep["kind"], string> = {
   start: "◉",
   straight: "↑",
@@ -64,6 +65,7 @@ export default function CampusMapWebScreen() {
   const indoorVisibleRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [floor, setFloor] = useState<EngineeringFloor>(1);
+  const [activeBuildingId, setActiveBuildingId] = useState<string | null>(null);
   const [indoorVisible, setIndoorVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -77,6 +79,14 @@ export default function CampusMapWebScreen() {
 
   const searchResults = searchEngineeringRooms(searchQuery);
   const hasSearchQuery = searchQuery.trim().length > 0;
+
+  const activeBuilding = activeBuildingId
+    ? findBuilding(activeBuildingId)
+    : undefined;
+  const activeIndoor = activeBuilding ? indoorDataFor(activeBuilding) : null;
+  const floorList = activeIndoor
+    ? [...activeIndoor.floors.keys()].sort((a, b) => b - a)
+    : [];
 
   const route: IndoorRoute | null = useMemo(() => {
     if (!originRoom || !destinationRoom) return null;
@@ -123,23 +133,23 @@ export default function CampusMapWebScreen() {
 
       map.addSource(SOURCE_IDS.building, {
         type: "geojson",
-        data: ENGINEERING_BUILDING
+        data: CAMPUS_BUILDINGS_GEOJSON
       });
       map.addSource(SOURCE_IDS.buildingLabel, {
         type: "geojson",
-        data: BUILDING_LABEL_GEOJSON
+        data: CAMPUS_LABELS_GEOJSON
       });
       map.addSource(SOURCE_IDS.floorShell, {
         type: "geojson",
-        data: ENGINEERING_FLOOR_SHELL
+        data: EMPTY_FEATURE_COLLECTION
       });
       map.addSource(SOURCE_IDS.floorSpaces, {
         type: "geojson",
-        data: ENGINEERING_FLOORS[1].spaces
+        data: EMPTY_FEATURE_COLLECTION
       });
       map.addSource(SOURCE_IDS.floorLabels, {
         type: "geojson",
-        data: ENGINEERING_FLOORS[1].labels
+        data: EMPTY_FEATURE_COLLECTION
       });
       map.addSource(SOURCE_IDS.routeLines, {
         type: "geojson",
@@ -175,6 +185,14 @@ export default function CampusMapWebScreen() {
             ? false
             : visible
       );
+      // 수동 줌 인 시 카메라 중심에서 가장 가까운 실내 건물을 편다.
+      if (zoom >= INDOOR_UI_ZOOM) {
+        const center = map.getCenter();
+        setActiveBuildingId(
+          (current) =>
+            current ?? buildingNear([center.lng, center.lat])?.id ?? null
+        );
+      }
     };
     map.on("move", syncIndoorChrome);
 
@@ -228,11 +246,15 @@ export default function CampusMapWebScreen() {
     const map = mapRef.current;
     if (!map || !mapReady) return;
 
+    const floorData = activeIndoor?.floors.get(floor);
+    (map.getSource(SOURCE_IDS.floorShell) as maplibregl.GeoJSONSource).setData(
+      activeIndoor?.shell ?? EMPTY_FEATURE_COLLECTION
+    );
     (map.getSource(SOURCE_IDS.floorSpaces) as maplibregl.GeoJSONSource).setData(
-      ENGINEERING_FLOORS[floor].spaces
+      floorData?.spaces ?? EMPTY_FEATURE_COLLECTION
     );
     (map.getSource(SOURCE_IDS.floorLabels) as maplibregl.GeoJSONSource).setData(
-      ENGINEERING_FLOORS[floor].labels
+      floorData?.labels ?? EMPTY_FEATURE_COLLECTION
     );
     for (const spec of [
       ...routeLineLayerSpecs(floor),
@@ -240,7 +262,7 @@ export default function CampusMapWebScreen() {
     ]) {
       if ("filter" in spec && spec.filter) map.setFilter(spec.id, spec.filter);
     }
-  }, [floor, mapReady]);
+  }, [floor, activeIndoor, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -280,6 +302,7 @@ export default function CampusMapWebScreen() {
 
   const backToCampus = () => {
     setSelectedRoom(null);
+    setActiveBuildingId(null);
     mapRef.current?.easeTo({
       center: CAMPUS_CAMERA.center as [number, number],
       zoom: CAMPUS_CAMERA.zoom,
@@ -290,6 +313,8 @@ export default function CampusMapWebScreen() {
   };
 
   const selectRoom = (room: EngineeringRoomSearchResult) => {
+    // 검색 인덱스는 아직 공학관 전용 (4단계에서 캠퍼스 전역으로 확장).
+    setActiveBuildingId("engineering");
     setFloor(room.floor);
     setSelectedRoom(room);
     setSearchOpen(false);
@@ -367,8 +392,12 @@ export default function CampusMapWebScreen() {
         )}
         <span className="brand-mark">MORI</span>
         <div>
-          <strong>{indoorVisible ? "공학관" : "대국민지도"}</strong>
-          <span>{indoorVisible ? `${floor}층 실내지도` : "국민대학교"}</span>
+          <strong>
+            {indoorVisible ? activeBuilding?.name ?? "대국민지도" : "대국민지도"}
+          </strong>
+          <span>
+            {indoorVisible ? `${floorLabel(floor)} 실내지도` : "국민대학교"}
+          </span>
         </div>
       </header>
 
@@ -434,18 +463,18 @@ export default function CampusMapWebScreen() {
         )}
       </section>
 
-      {indoorVisible && (
+      {indoorVisible && floorList.length > 0 && (
         <nav className="floor-selector" aria-label="층 선택">
-          {FLOORS.map((item) => (
+          {floorList.map((item) => (
             <button
               key={item}
-              aria-label={`공학관 ${item}층`}
+              aria-label={`${activeBuilding?.name ?? ""} ${floorLabel(item)}`}
               aria-pressed={item === floor}
               className={item === floor ? "selected" : undefined}
               onClick={() => changeFloor(item)}
               type="button"
             >
-              {item}F
+              {floorLabel(item)}
             </button>
           ))}
         </nav>

@@ -25,12 +25,15 @@ import { Icon } from "@/shared/components/Icon";
 import { EmptyState } from "@/shared/components/empty-state";
 import { theme } from "@/shared/styles";
 
-import { ENGINEERING_BUILDING } from "../data/buildings/engineering";
 import {
-  ENGINEERING_FLOORS,
-  ENGINEERING_FLOOR_SHELL,
-  type EngineeringFloor
-} from "../data/buildings/engineering";
+  buildingNear,
+  CAMPUS_BUILDINGS_GEOJSON,
+  CAMPUS_LABELS_GEOJSON,
+  findBuilding,
+  floorLabel
+} from "../data/campus";
+import { indoorDataFor } from "../data/indoor-geometry";
+import type { EngineeringFloor } from "../data/buildings/engineering";
 import {
   engineeringRouteToGeoJSON,
   findEngineeringRoute,
@@ -45,7 +48,6 @@ import {
 } from "../data/engineering-search";
 import {
   BUILDING_CAMERA,
-  BUILDING_LABEL_GEOJSON,
   CAMPUS_CAMERA,
   EASE_DURATION_MS,
   EMPTY_FEATURE_COLLECTION,
@@ -64,8 +66,6 @@ import {
   routeMarkerLayerSpecs
 } from "../map/campus-map-spec";
 
-const FLOORS: EngineeringFloor[] = [2, 1];
-
 const STEP_ICONS: Record<IndoorRouteStep["kind"], string> = {
   start: "◉",
   straight: "↑",
@@ -82,6 +82,7 @@ export default function CampusMapScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [floor, setFloor] = useState<EngineeringFloor>(1);
+  const [activeBuildingId, setActiveBuildingId] = useState<string | null>(null);
   const [indoorVisible, setIndoorVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -95,6 +96,15 @@ export default function CampusMapScreen() {
 
   const searchResults = searchEngineeringRooms(searchQuery);
   const hasSearchQuery = searchQuery.trim().length > 0;
+
+  const activeBuilding = activeBuildingId
+    ? findBuilding(activeBuildingId)
+    : undefined;
+  const activeIndoor = activeBuilding ? indoorDataFor(activeBuilding) : null;
+  const floorList = activeIndoor
+    ? [...activeIndoor.floors.keys()].sort((a, b) => b - a)
+    : [];
+  const activeFloorData = activeIndoor?.floors.get(floor);
 
   const route: IndoorRoute | null = useMemo(() => {
     if (!originRoom || !destinationRoom) return null;
@@ -124,6 +134,7 @@ export default function CampusMapScreen() {
 
   const backToCampus = () => {
     setSelectedRoom(null);
+    setActiveBuildingId(null);
     cameraRef.current?.easeTo({
       ...CAMPUS_CAMERA,
       duration: 900,
@@ -134,14 +145,23 @@ export default function CampusMapScreen() {
   const handleRegionChange = (
     event: NativeSyntheticEvent<ViewStateChangeEvent>
   ) => {
-    const { zoom } = event.nativeEvent;
+    const { zoom, center } = event.nativeEvent;
     // Hysteresis so the chrome doesn't flicker right at the threshold.
     setIndoorVisible((visible) =>
       zoom >= INDOOR_UI_ZOOM ? true : zoom <= INDOOR_UI_ZOOM - 0.3 ? false : visible
     );
+    // 수동 핀치줌으로 실내에 들어오면 카메라 중심에서 가장 가까운 실내 건물을 편다.
+    if (zoom >= INDOOR_UI_ZOOM) {
+      setActiveBuildingId(
+        (current) =>
+          current ?? buildingNear(center as [number, number])?.id ?? null
+      );
+    }
   };
 
   const selectRoom = (room: EngineeringRoomSearchResult, fly = true) => {
+    // 검색 인덱스는 아직 공학관 전용 (4단계에서 캠퍼스 전역으로 확장).
+    setActiveBuildingId("engineering");
     setFloor(room.floor);
     setSelectedRoom(room);
     setSearchOpen(false);
@@ -244,7 +264,7 @@ export default function CampusMapScreen() {
 
         <GeoJSONSource
           id="engineering-building"
-          data={ENGINEERING_BUILDING}
+          data={CAMPUS_BUILDINGS_GEOJSON}
           hitbox={{ top: 16, right: 16, bottom: 16, left: 16 }}
           onPress={handleBuildingPress}
         >
@@ -253,7 +273,10 @@ export default function CampusMapScreen() {
           ))}
         </GeoJSONSource>
 
-        <GeoJSONSource id="engineering-floor-shell" data={ENGINEERING_FLOOR_SHELL}>
+        <GeoJSONSource
+          id="engineering-floor-shell"
+          data={activeIndoor?.shell ?? EMPTY_FEATURE_COLLECTION}
+        >
           {floorShellLayerSpecs().map((spec) => (
             <Layer key={spec.id} {...spec} />
           ))}
@@ -261,7 +284,7 @@ export default function CampusMapScreen() {
 
         <GeoJSONSource
           id="engineering-floor-spaces"
-          data={ENGINEERING_FLOORS[floor].spaces}
+          data={activeFloorData?.spaces ?? EMPTY_FEATURE_COLLECTION}
           onPress={handleSpacePress}
         >
           {floorSpaceLayerSpecs(selectedRoomId).map((spec) => (
@@ -280,7 +303,7 @@ export default function CampusMapScreen() {
 
         <GeoJSONSource
           id="engineering-floor-labels"
-          data={ENGINEERING_FLOORS[floor].labels}
+          data={activeFloorData?.labels ?? EMPTY_FEATURE_COLLECTION}
         >
           {floorLabelLayerSpecs(selectedRoomId).map((spec) => (
             <Layer key={spec.id} {...spec} />
@@ -298,7 +321,7 @@ export default function CampusMapScreen() {
 
         <GeoJSONSource
           id="engineering-building-label"
-          data={BUILDING_LABEL_GEOJSON}
+          data={CAMPUS_LABELS_GEOJSON}
           hitbox={{ top: 20, right: 20, bottom: 20, left: 20 }}
           onPress={handleBuildingPress}
         >
@@ -329,10 +352,10 @@ export default function CampusMapScreen() {
           )}
           <View style={styles.headerText}>
             <Text style={styles.title}>
-              {indoorVisible ? "공학관" : "대국민지도"}
+              {indoorVisible ? activeBuilding?.name ?? "대국민지도" : "대국민지도"}
             </Text>
             <Text style={styles.subtitle}>
-              {indoorVisible ? `${floor}층 실내지도` : "국민대학교"}
+              {indoorVisible ? `${floorLabel(floor)} 실내지도` : "국민대학교"}
             </Text>
           </View>
         </View>
@@ -407,15 +430,15 @@ export default function CampusMapScreen() {
           )}
         </View>
 
-        {indoorVisible && (
+        {indoorVisible && floorList.length > 0 && (
           <View style={styles.floorSelector}>
-            {FLOORS.map((item) => {
+            {floorList.map((item) => {
               const selected = item === floor;
 
               return (
                 <Pressable
                   key={item}
-                  accessibilityLabel={`공학관 ${item}층`}
+                  accessibilityLabel={`${activeBuilding?.name ?? ""} ${floorLabel(item)}`}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
                   onPress={() => changeFloor(item)}
@@ -431,7 +454,7 @@ export default function CampusMapScreen() {
                       selected && styles.floorButtonTextSelected
                     ]}
                   >
-                    {item}F
+                    {floorLabel(item)}
                   </Text>
                 </Pressable>
               );
