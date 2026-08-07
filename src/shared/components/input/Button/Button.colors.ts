@@ -10,6 +10,15 @@ export function getContainerStyle(
   loading = false,
   selected = false,
 ): ViewStyle {
+  if (type === 'cta') {
+    if (disabled) return { backgroundColor: theme.color.bg.disabled }
+    return {
+      backgroundColor: pressed
+        ? theme.color.primitive.base.black
+        : theme.color.primitive.neutral[800],
+    }
+  }
+
   if (type === 'tertiary') {
     if (disabled) return { backgroundColor: theme.color.bg.disabled }
     if (pressed) return { backgroundColor: theme.color.bg.interactive['tertiary-pressed'] }
@@ -120,6 +129,11 @@ export function getTextColor(
   disabled: boolean,
   selected = false,
 ): string {
+  if (type === 'cta') {
+    if (disabled) return theme.color.text.disabled
+    return theme.color.text.interactive.inverse
+  }
+
   if (type === 'tertiary') {
     if (disabled) return theme.color.text.disabled
     if (pressed) return theme.color.text.interactive['primary-pressed']
@@ -158,6 +172,11 @@ export function getIconColor(
   disabled: boolean,
   selected = false,
 ): string {
+  if (type === 'cta') {
+    if (disabled) return theme.color.icon.disabled
+    return theme.color.icon.interactive.inverse
+  }
+
   if (type === 'tertiary') {
     if (disabled) return theme.color.icon.disabled
     if (pressed) return theme.color.icon.interactive['primary-pressed']
