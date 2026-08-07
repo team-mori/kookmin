@@ -7,11 +7,12 @@ import {
   type Building,
   type OutdoorPlace
 } from "./campus-types.ts";
+import { BUGAK } from "./buildings/bugak.ts";
 import { ENGINEERING } from "./buildings/engineering.ts";
 
 export { floorKey, floorLabel };
 
-export const BUILDINGS: readonly Building[] = [ENGINEERING];
+export const BUILDINGS: readonly Building[] = [ENGINEERING, BUGAK];
 
 // ponytail: 답사 전 근사 좌표 — 실측 후 갱신
 export const OUTDOOR_PLACES: readonly OutdoorPlace[] = [

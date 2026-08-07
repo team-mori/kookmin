@@ -188,9 +188,26 @@ export default function CampusMapScreen() {
 
   const selectPlace = (place: Place) => {
     if (place.kind === "room") {
-      const { spaceId } = parsePlaceId(place.id);
-      const room = spaceId ? findEngineeringRoom(spaceId) : undefined;
-      if (room) selectRoom(room);
+      const { buildingId, spaceId } = parsePlaceId(place.id);
+      const room =
+        spaceId && buildingId === "engineering"
+          ? findEngineeringRoom(spaceId)
+          : undefined;
+      if (room) {
+        selectRoom(room);
+        return;
+      }
+      // 다른 건물의 방: 실내 뷰를 연다 (카드·길찾기는 아직 공학관 전용).
+      setSearchOpen(false);
+      if (buildingId) setActiveBuildingId(buildingId);
+      if (place.floor !== undefined) setFloor(place.floor);
+      cameraRef.current?.flyTo({
+        center: place.center,
+        duration: FLY_DURATION_MS,
+        padding: { top: 164, right: 28, bottom: 200, left: 28 },
+        pitch: ROOM_PITCH,
+        zoom: ROOM_ZOOM
+      });
       return;
     }
     setSearchOpen(false);
