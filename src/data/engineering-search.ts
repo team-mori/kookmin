@@ -1,7 +1,7 @@
 import {
   ENGINEERING_FLOORS,
   type EngineeringFloor
-} from "./engineering-floors";
+} from "./engineering-floors.ts";
 
 export type EngineeringRoomSearchResult = {
   id: string;
@@ -38,6 +38,11 @@ const ROOM_SEARCH_INDEX: EngineeringRoomSearchResult[] = ([1, 2] as const)
       })
       .filter((room): room is EngineeringRoomSearchResult => room !== null);
   });
+
+export const findEngineeringRoom = (
+  id: string
+): EngineeringRoomSearchResult | undefined =>
+  ROOM_SEARCH_INDEX.find((room) => room.id === id);
 
 const normalizeSearchValue = (value: string) =>
   value.normalize("NFKC").toLocaleLowerCase("ko-KR").replace(/[\s·._-]+/g, "");

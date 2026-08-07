@@ -1,4 +1,4 @@
-import { ENGINEERING_CENTER } from "./engineering-building";
+import { ENGINEERING_CENTER } from "./engineering-building.ts";
 
 export type EngineeringFloor = 1 | 2;
 
@@ -26,7 +26,7 @@ export type EngineeringFloorData = {
 };
 
 // planXY bounds in meters from the floor drawing's local origin.
-type LocalBounds = readonly [
+export type LocalBounds = readonly [
   west: number,
   south: number,
   east: number,
@@ -272,6 +272,20 @@ export const ENGINEERING_FLOORS: Record<
   1: floorData(1),
   2: floorData(2)
 };
+
+// planXY space list for routing; geometry stays in local meters here.
+export type EngineeringSpaceInfo = EngineeringSpaceProperties & {
+  bounds: LocalBounds;
+};
+
+export const ENGINEERING_SPACES: readonly EngineeringSpaceInfo[] = (
+  [1, 2] as const
+).flatMap((floor) =>
+  [...COMMON_SPACES, ...FLOOR_ROOMS[floor]].map((definition) => ({
+    ...propertiesFor(floor, definition),
+    bounds: definition.bounds
+  }))
+);
 
 const [west, south, east, north] = FLOOR_EXTENT;
 const southWest = toWgs84([west, south]);

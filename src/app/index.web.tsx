@@ -1,109 +1,302 @@
-import { useState } from "react";
+import maplibregl from "maplibre-gl";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ENGINEERING_BUILDING } from "../data/engineering-building";
 import {
-  ENGINEERING_FLOOR_BOUNDS,
   ENGINEERING_FLOORS,
   ENGINEERING_FLOOR_SHELL,
-  type EngineeringFloor,
-  type EngineeringSpaceKind
+  type EngineeringFloor
 } from "../data/engineering-floors";
 import {
-  ENGINEERING_DEMO_ROUTE,
-  ENGINEERING_ROUTE_DEMO,
-  toEngineeringRouteCoordinate
+  engineeringRouteToGeoJSON,
+  findEngineeringRoute,
+  toEngineeringRouteCoordinate,
+  type IndoorRoute,
+  type IndoorRouteStep
 } from "../data/engineering-route";
 import {
+  findEngineeringRoom,
   searchEngineeringRooms,
   type EngineeringRoomSearchResult
 } from "../data/engineering-search";
+import {
+  BUILDING_CAMERA,
+  BUILDING_LABEL_GEOJSON,
+  CAMPUS_CAMERA,
+  EASE_DURATION_MS,
+  EMPTY_FEATURE_COLLECTION,
+  FLY_DURATION_MS,
+  INDOOR_UI_ZOOM,
+  MAP_STYLE_URL,
+  ROOM_PITCH,
+  ROOM_ZOOM,
+  SOURCE_IDS,
+  STEP_ZOOM,
+  buildingLabelLayerSpecs,
+  buildingLayerSpecs,
+  floorLabelLayerSpecs,
+  floorShellLayerSpecs,
+  floorSpaceLayerSpecs,
+  routeLineLayerSpecs,
+  routeMarkerLayerSpecs
+} from "../map/campus-map-spec";
 
 const FLOORS: EngineeringFloor[] = [2, 1];
-const VIEWBOX_WIDTH = 960;
-const VIEWBOX_HEIGHT = 640;
-const [WEST, SOUTH, EAST, NORTH] = ENGINEERING_FLOOR_BOUNDS;
-const DEMO_ROUTE_MINUTES = Math.ceil(
-  ENGINEERING_DEMO_ROUTE.estimatedSeconds / 60
-);
-const DEMO_ROUTE_COORDINATES = ENGINEERING_DEMO_ROUTE.points.map(
-  toEngineeringRouteCoordinate
-);
 
-const APPEARANCE: Record<
-  EngineeringSpaceKind,
-  { fill: string; side: string; stroke: string; text: string }
-> = {
-  room: {
-    fill: "#F7FAF8",
-    side: "#BCC7C1",
-    stroke: "#AAB6B0",
-    text: "#29352F"
-  },
-  corridor: {
-    fill: "#FFFFFF",
-    side: "#D8E0DC",
-    stroke: "#CDD7D2",
-    text: "#65716B"
-  },
-  stairs: {
-    fill: "#E6F0FF",
-    side: "#9DB7DE",
-    stroke: "#6F94C9",
-    text: "#42699F"
-  },
-  elevator: {
-    fill: "#DFF3E7",
-    side: "#93BFA3",
-    stroke: "#5B9A70",
-    text: "#39724E"
-  }
+const STEP_ICONS: Record<IndoorRouteStep["kind"], string> = {
+  start: "◉",
+  straight: "↑",
+  "turn-left": "↰",
+  "turn-right": "↱",
+  "floor-change": "⇅",
+  arrive: "◎"
 };
 
-const project = ([longitude, latitude]: GeoJSON.Position): [number, number] => {
-  const x = (longitude - WEST) / (EAST - WEST) - 0.5;
-  const y = (latitude - SOUTH) / (NORTH - SOUTH) - 0.5;
+const ROOM_PADDING = { top: 170, right: 40, bottom: 230, left: 40 };
 
-  return [
-    VIEWBOX_WIDTH / 2 + x * 780 + y * 72,
-    VIEWBOX_HEIGHT / 2 + x * 22 - y * 420
-  ];
-};
+const roomTitle = (room: EngineeringRoomSearchResult) => `${room.roomNumber}호`;
 
-const polygonPoints = (
-  coordinates: GeoJSON.Position[],
-  offsetY = 0
-): string =>
-  coordinates
-    .map((coordinate) => {
-      const [x, y] = project(coordinate);
-      return `${x.toFixed(1)},${(y + offsetY).toFixed(1)}`;
-    })
-    .join(" ");
-
-export default function IndoorMapWebPreview() {
+export default function CampusMapWebScreen() {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const indoorVisibleRef = useRef(false);
+  const [mapReady, setMapReady] = useState(false);
   const [floor, setFloor] = useState<EngineeringFloor>(1);
-  const [routeVisible, setRouteVisible] = useState(false);
+  const [indoorVisible, setIndoorVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] =
     useState<EngineeringRoomSearchResult | null>(null);
-  const floorData = ENGINEERING_FLOORS[floor];
-  const shell = ENGINEERING_FLOOR_SHELL.features[0].geometry.coordinates[0];
+  const [originRoom, setOriginRoom] =
+    useState<EngineeringRoomSearchResult | null>(null);
+  const [destinationRoom, setDestinationRoom] =
+    useState<EngineeringRoomSearchResult | null>(null);
+  const [activeStep, setActiveStep] = useState(0);
+
   const searchResults = searchEngineeringRooms(searchQuery);
   const hasSearchQuery = searchQuery.trim().length > 0;
-  const [routeStartX, routeStartY] = project(DEMO_ROUTE_COORDINATES[0]);
-  const [routeEndX, routeEndY] = project(DEMO_ROUTE_COORDINATES.at(-1)!);
 
-  const showDemoRoute = () => {
-    setFloor(ENGINEERING_ROUTE_DEMO.floor);
+  const route: IndoorRoute | null = useMemo(() => {
+    if (!originRoom || !destinationRoom) return null;
+    if (originRoom.id === destinationRoom.id) return null;
+    try {
+      return findEngineeringRoute(originRoom.id, destinationRoom.id);
+    } catch {
+      return null;
+    }
+  }, [originRoom, destinationRoom]);
+
+  const routeGeoJSON = useMemo(
+    () => (route ? engineeringRouteToGeoJSON(route) : null),
+    [route]
+  );
+  const routeMinutes = route ? Math.ceil(route.estimatedSeconds / 60) : 0;
+
+  useEffect(() => {
+    indoorVisibleRef.current = indoorVisible;
+  }, [indoorVisible]);
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: MAP_STYLE_URL,
+      center: CAMPUS_CAMERA.center as [number, number],
+      zoom: CAMPUS_CAMERA.zoom,
+      pitch: CAMPUS_CAMERA.pitch,
+      bearing: CAMPUS_CAMERA.bearing,
+      attributionControl: false,
+      dragRotate: false,
+      pitchWithRotate: false
+    });
+    mapRef.current = map;
+    // ponytail: dev-only handle for debugging in headless previews.
+    if (process.env.NODE_ENV !== "production") {
+      (window as { __map?: maplibregl.Map }).__map = map;
+    }
+
+    map.on("load", () => {
+      if (mapRef.current !== map) return;
+
+      map.addSource(SOURCE_IDS.building, {
+        type: "geojson",
+        data: ENGINEERING_BUILDING
+      });
+      map.addSource(SOURCE_IDS.buildingLabel, {
+        type: "geojson",
+        data: BUILDING_LABEL_GEOJSON
+      });
+      map.addSource(SOURCE_IDS.floorShell, {
+        type: "geojson",
+        data: ENGINEERING_FLOOR_SHELL
+      });
+      map.addSource(SOURCE_IDS.floorSpaces, {
+        type: "geojson",
+        data: ENGINEERING_FLOORS[1].spaces
+      });
+      map.addSource(SOURCE_IDS.floorLabels, {
+        type: "geojson",
+        data: ENGINEERING_FLOORS[1].labels
+      });
+      map.addSource(SOURCE_IDS.routeLines, {
+        type: "geojson",
+        data: EMPTY_FEATURE_COLLECTION
+      });
+      map.addSource(SOURCE_IDS.routeMarkers, {
+        type: "geojson",
+        data: EMPTY_FEATURE_COLLECTION
+      });
+
+      const specs = [
+        ...buildingLayerSpecs(),
+        ...floorShellLayerSpecs(),
+        ...floorSpaceLayerSpecs(null),
+        ...routeLineLayerSpecs(1),
+        ...floorLabelLayerSpecs(null),
+        ...routeMarkerLayerSpecs(1),
+        ...buildingLabelLayerSpecs()
+      ];
+      for (const spec of specs) {
+        map.addLayer(spec);
+      }
+
+      setMapReady(true);
+    });
+
+    const syncIndoorChrome = () => {
+      const zoom = map.getZoom();
+      setIndoorVisible((visible) =>
+        zoom >= INDOOR_UI_ZOOM
+          ? true
+          : zoom <= INDOOR_UI_ZOOM - 0.3
+            ? false
+            : visible
+      );
+    };
+    map.on("move", syncIndoorChrome);
+
+    const setPointer = () => {
+      map.getCanvas().style.cursor = "pointer";
+    };
+    const clearPointer = () => {
+      map.getCanvas().style.cursor = "";
+    };
+    for (const layerId of ["building-fill", "building-label", "floor-spaces"]) {
+      map.on("mouseenter", layerId, setPointer);
+      map.on("mouseleave", layerId, clearPointer);
+    }
+
+    const openBuilding = () => {
+      if (indoorVisibleRef.current) return;
+      map.flyTo({
+        center: BUILDING_CAMERA.center as [number, number],
+        zoom: BUILDING_CAMERA.zoom,
+        pitch: BUILDING_CAMERA.pitch,
+        duration: FLY_DURATION_MS,
+        padding: { top: 96, right: 24, bottom: 120, left: 24 }
+      });
+    };
+    map.on("click", "building-fill", openBuilding);
+    map.on("click", "building-label", openBuilding);
+
+    map.on("click", "floor-spaces", (event) => {
+      if (!indoorVisibleRef.current) return;
+      const feature = event.features?.find(
+        (item) => item.properties?.kind === "room"
+      );
+      const roomId = feature?.properties?.id;
+      const room =
+        typeof roomId === "string" ? findEngineeringRoom(roomId) : undefined;
+      if (!room) return;
+
+      setFloor(room.floor);
+      setSelectedRoom(room);
+      setSearchOpen(false);
+      map.easeTo({
+        center: room.center,
+        duration: EASE_DURATION_MS,
+        padding: ROOM_PADDING
+      });
+    });
+
+    return () => {
+      mapRef.current = null;
+      map.remove();
+    };
+  }, []);
+
+  // Swap floor data and per-floor route filters in place.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    (map.getSource(SOURCE_IDS.floorSpaces) as maplibregl.GeoJSONSource).setData(
+      ENGINEERING_FLOORS[floor].spaces
+    );
+    (map.getSource(SOURCE_IDS.floorLabels) as maplibregl.GeoJSONSource).setData(
+      ENGINEERING_FLOORS[floor].labels
+    );
+    for (const spec of [
+      ...routeLineLayerSpecs(floor),
+      ...routeMarkerLayerSpecs(floor)
+    ]) {
+      if ("filter" in spec && spec.filter) map.setFilter(spec.id, spec.filter);
+    }
+  }, [floor, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    const selectedId =
+      selectedRoom && selectedRoom.floor === floor ? selectedRoom.id : null;
+    for (const spec of [
+      ...floorSpaceLayerSpecs(selectedId),
+      ...floorLabelLayerSpecs(selectedId)
+    ]) {
+      if ("filter" in spec && spec.filter) map.setFilter(spec.id, spec.filter);
+    }
+  }, [selectedRoom, floor, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    (map.getSource(SOURCE_IDS.routeLines) as maplibregl.GeoJSONSource).setData(
+      routeGeoJSON?.lines ?? EMPTY_FEATURE_COLLECTION
+    );
+    (map.getSource(SOURCE_IDS.routeMarkers) as maplibregl.GeoJSONSource).setData(
+      routeGeoJSON?.markers ?? EMPTY_FEATURE_COLLECTION
+    );
+  }, [routeGeoJSON, mapReady]);
+
+  const focusRoom = (room: EngineeringRoomSearchResult) => {
+    mapRef.current?.flyTo({
+      center: room.center,
+      zoom: ROOM_ZOOM,
+      pitch: ROOM_PITCH,
+      duration: FLY_DURATION_MS,
+      padding: ROOM_PADDING
+    });
+  };
+
+  const backToCampus = () => {
     setSelectedRoom(null);
-    setRouteVisible(true);
+    mapRef.current?.easeTo({
+      center: CAMPUS_CAMERA.center as [number, number],
+      zoom: CAMPUS_CAMERA.zoom,
+      pitch: CAMPUS_CAMERA.pitch,
+      duration: 900,
+      padding: { top: 0, right: 0, bottom: 0, left: 0 }
+    });
   };
 
   const selectRoom = (room: EngineeringRoomSearchResult) => {
     setFloor(room.floor);
     setSelectedRoom(room);
-    setRouteVisible(false);
     setSearchOpen(false);
+    focusRoom(room);
   };
 
   const resetSearch = () => {
@@ -112,21 +305,73 @@ export default function IndoorMapWebPreview() {
     setSelectedRoom(null);
   };
 
+  const clearRoute = () => {
+    setOriginRoom(null);
+    setDestinationRoom(null);
+    setActiveStep(0);
+  };
+
+  const setAsOrigin = (room: EngineeringRoomSearchResult) => {
+    setOriginRoom(room);
+    if (destinationRoom?.id === room.id) setDestinationRoom(null);
+    setSelectedRoom(null);
+    setActiveStep(0);
+  };
+
+  const setAsDestination = (room: EngineeringRoomSearchResult) => {
+    setDestinationRoom(room);
+    if (originRoom?.id === room.id) setOriginRoom(null);
+    setSelectedRoom(null);
+    setActiveStep(0);
+  };
+
+  const focusStep = (index: number) => {
+    if (!route) return;
+    const step = route.steps[index];
+    setActiveStep(index);
+    setFloor(step.floor);
+    mapRef.current?.easeTo({
+      center: toEngineeringRouteCoordinate(step.focusXY),
+      zoom: STEP_ZOOM,
+      pitch: ROOM_PITCH,
+      duration: EASE_DURATION_MS,
+      padding: { top: 120, right: 40, bottom: 320, left: 40 }
+    });
+  };
+
   const changeFloor = (nextFloor: EngineeringFloor) => {
     setFloor(nextFloor);
-    setRouteVisible(false);
-    if (selectedRoom?.floor !== nextFloor) setSelectedRoom(null);
+    if (selectedRoom && selectedRoom.floor !== nextFloor) setSelectedRoom(null);
   };
+
+  const pendingLabel =
+    originRoom && !destinationRoom
+      ? { chip: `출발 ${roomTitle(originRoom)}`, hint: "도착지를 선택하세요" }
+      : destinationRoom && !originRoom
+        ? { chip: `도착 ${roomTitle(destinationRoom)}`, hint: "출발지를 선택하세요" }
+        : null;
 
   return (
     <main className="app-shell">
       <style>{styles}</style>
 
+      <div ref={containerRef} className="map-canvas" />
+
       <header className="map-header">
+        {indoorVisible && (
+          <button
+            aria-label="캠퍼스 지도로 돌아가기"
+            className="back-button"
+            onClick={backToCampus}
+            type="button"
+          >
+            ‹
+          </button>
+        )}
         <span className="brand-mark">MORI</span>
         <div>
-          <strong>공학관</strong>
-          <span>{floor}층 실내지도</span>
+          <strong>{indoorVisible ? "공학관" : "대국민지도"}</strong>
+          <span>{indoorVisible ? `${floor}층 실내지도` : "국민대학교"}</span>
         </div>
       </header>
 
@@ -187,183 +432,104 @@ export default function IndoorMapWebPreview() {
         )}
       </section>
 
-      <nav className="floor-selector" aria-label="층 선택">
-        {FLOORS.map((item) => (
+      {indoorVisible && (
+        <nav className="floor-selector" aria-label="층 선택">
+          {FLOORS.map((item) => (
+            <button
+              key={item}
+              aria-label={`공학관 ${item}층`}
+              aria-pressed={item === floor}
+              className={item === floor ? "selected" : undefined}
+              onClick={() => changeFloor(item)}
+              type="button"
+            >
+              {item}F
+            </button>
+          ))}
+        </nav>
+      )}
+
+      {pendingLabel && !route && (
+        <div className="pending-chip">
+          <span>
+            {pendingLabel.chip} · {pendingLabel.hint}
+          </span>
           <button
-            key={item}
-            aria-label={`공학관 ${item}층`}
-            aria-pressed={item === floor}
-            className={item === floor ? "selected" : undefined}
-            onClick={() => changeFloor(item)}
+            aria-label="경로 선택 취소"
+            onClick={clearRoute}
             type="button"
           >
-            {item}F
+            ×
           </button>
-        ))}
-      </nav>
-
-      <svg
-        aria-label={`공학관 ${floor}층 공간 배치도`}
-        className="indoor-map"
-        preserveAspectRatio="xMidYMid meet"
-        role="img"
-        viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
-      >
-        <defs>
-          <pattern id="map-grid" width="32" height="32" patternUnits="userSpaceOnUse">
-            <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#D7E0DB" strokeWidth="1" />
-          </pattern>
-          <filter id="map-shadow" x="-20%" y="-20%" width="140%" height="150%">
-            <feDropShadow dx="0" dy="12" floodColor="#53645B" floodOpacity="0.22" stdDeviation="12" />
-          </filter>
-          <marker
-            id="route-chevron"
-            markerHeight="8"
-            markerUnits="userSpaceOnUse"
-            markerWidth="8"
-            orient="auto"
-            refX="7"
-            refY="4"
-            viewBox="0 0 8 8"
-          >
-            <path d="M1 1 L7 4 L1 7" fill="none" stroke="#FFFFFF" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
-          </marker>
-          <filter id="selected-shadow" x="-30%" y="-30%" width="160%" height="170%">
-            <feDropShadow dx="0" dy="5" floodColor="#0B4EB9" floodOpacity="0.42" stdDeviation="5" />
-          </filter>
-        </defs>
-
-        <rect width={VIEWBOX_WIDTH} height={VIEWBOX_HEIGHT} fill="#E8EEEB" />
-        <rect width={VIEWBOX_WIDTH} height={VIEWBOX_HEIGHT} fill="url(#map-grid)" opacity="0.45" />
-
-        <g key={floor} aria-hidden="true" className="floor-plan">
-          <polygon
-            fill="#8C9C94"
-            opacity="0.68"
-            points={polygonPoints(shell, 15)}
-          />
-          <polygon
-            fill="#FCFEFD"
-            filter="url(#map-shadow)"
-            points={polygonPoints(shell)}
-            stroke="#91A098"
-            strokeLinejoin="round"
-            strokeWidth="2"
-          />
-
-          {floorData.spaces.features.map((feature) => {
-            const { id, kind } = feature.properties;
-            const appearance = APPEARANCE[kind];
-            const offset = kind === "corridor" ? 1.5 : kind === "elevator" ? 8 : 5;
-            const selected = id === selectedRoom?.id;
-
-            return (
-              <polygon
-                key={`${id}-side`}
-                fill={selected ? "#0B4EB9" : appearance.side}
-                opacity={kind === "corridor" ? 0.45 : 0.9}
-                points={polygonPoints(feature.geometry.coordinates[0], offset)}
-              />
-            );
-          })}
-
-          {floorData.spaces.features.map((feature) => {
-            const { id, kind } = feature.properties;
-            const appearance = APPEARANCE[kind];
-            const selected = id === selectedRoom?.id;
-
-            return (
-              <polygon
-                key={id}
-                className={selected ? "space selected" : "space"}
-                fill={selected ? "#2478F4" : appearance.fill}
-                filter={selected ? "url(#selected-shadow)" : undefined}
-                points={polygonPoints(feature.geometry.coordinates[0])}
-                stroke={selected ? "#0B4EB9" : appearance.stroke}
-                strokeLinejoin="round"
-                strokeWidth={selected ? 4 : kind === "corridor" ? 1.2 : 1.5}
-              />
-            );
-          })}
-
-          {routeVisible && floor === ENGINEERING_ROUTE_DEMO.floor && (
-            <g aria-label="115호에서 107호까지 고정 데모 경로">
-              <polyline
-                className="route-casing"
-                fill="none"
-                points={polygonPoints(DEMO_ROUTE_COORDINATES)}
-              />
-              <polyline
-                className="route-line"
-                fill="none"
-                markerEnd="url(#route-chevron)"
-                markerMid="url(#route-chevron)"
-                points={polygonPoints(DEMO_ROUTE_COORDINATES)}
-              />
-              <circle className="route-marker start" cx={routeStartX} cy={routeStartY} r="9" />
-              <circle className="route-marker destination" cx={routeEndX} cy={routeEndY} r="9" />
-              <text className="route-marker-label" textAnchor="middle" x={routeStartX} y={routeStartY - 16}>
-                115 출발
-              </text>
-              <text className="route-marker-label" textAnchor="middle" x={routeEndX} y={routeEndY - 16}>
-                107 도착
-              </text>
-            </g>
-          )}
-
-          {floorData.labels.features.map((feature) => {
-            const { id, kind, label } = feature.properties;
-            if (kind === "corridor") return null;
-
-            const [x, y] = project(feature.geometry.coordinates);
-            const fontSize = kind === "room" ? (label.length > 5 ? 8 : 10) : 9;
-            const selected = id === selectedRoom?.id;
-
-            return (
-              <text
-                key={`${id}-label`}
-                className={label.length > 5 ? "space-label compact" : "space-label"}
-                dominantBaseline="central"
-                fill={selected ? "#FFFFFF" : APPEARANCE[kind].text}
-                fontSize={fontSize}
-                fontWeight="700"
-                paintOrder="stroke"
-                stroke={selected ? "#0B4EB9" : "#FFFFFF"}
-                strokeWidth={selected ? 3.2 : 2.6}
-                textAnchor="middle"
-                x={x}
-                y={y}
-              >
-                {label}
-              </text>
-            );
-          })}
-        </g>
-      </svg>
-
-      <aside className="map-legend" aria-label="지도 범례">
-        <span><i className="room" />호실</span>
-        <span><i className="stairs" />계단</span>
-        <span><i className="elevator" />엘리베이터</span>
-      </aside>
-
-      <section aria-live="polite" className="route-bar">
-        <div>
-          <strong>고정 데모 · {ENGINEERING_ROUTE_DEMO.startLabel} → {ENGINEERING_ROUTE_DEMO.destinationLabel}</strong>
-          <span>
-            {routeVisible
-              ? `${Math.round(ENGINEERING_DEMO_ROUTE.distanceMeters)}m · 약 ${DEMO_ROUTE_MINUTES}분`
-              : "공학관 1층 실내 경로"}
-          </span>
         </div>
-        <button
-          className={routeVisible ? "clear" : undefined}
-          onClick={routeVisible ? () => setRouteVisible(false) : showDemoRoute}
-          type="button"
-        >
-          {routeVisible ? "안내 종료" : "경로 보기"}
-        </button>
-      </section>
+      )}
+
+      {selectedRoom && !route && (
+        <section className="room-card" aria-label="선택한 호실">
+          <div className="room-card-text">
+            <strong>{roomTitle(selectedRoom)}</strong>
+            <span>
+              {selectedRoom.name} · 공학관 {selectedRoom.floor}층
+            </span>
+          </div>
+          <button
+            className="ghost"
+            onClick={() => setAsOrigin(selectedRoom)}
+            type="button"
+          >
+            출발
+          </button>
+          <button onClick={() => setAsDestination(selectedRoom)} type="button">
+            도착
+          </button>
+          <button
+            aria-label="호실 정보 닫기"
+            className="close"
+            onClick={() => setSelectedRoom(null)}
+            type="button"
+          >
+            ×
+          </button>
+        </section>
+      )}
+
+      {route && (
+        <section className="route-panel" aria-live="polite">
+          <div className="route-summary-row">
+            <div>
+              <strong>
+                {route.start.roomNumber}호 → {route.destination.roomNumber}호
+              </strong>
+              <span>
+                {route.distanceMeters}m · 약 {routeMinutes}분
+                {route.segments.length > 1 ? " · 층간 이동 포함" : ""}
+              </span>
+            </div>
+            <button onClick={clearRoute} type="button">
+              종료
+            </button>
+          </div>
+          <ol className="step-list">
+            {route.steps.map((step, index) => (
+              <li key={`${index}-${step.kind}`}>
+                <button
+                  className={index === activeStep ? "active" : undefined}
+                  onClick={() => focusStep(index)}
+                  type="button"
+                >
+                  <i>{STEP_ICONS[step.kind]}</i>
+                  <span>{step.text}</span>
+                  <b>{step.floor}F</b>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      <footer className="map-attribution">
+        © MapLibre · © OpenFreeMap · © OpenMapTiles · © OpenStreetMap
+      </footer>
     </main>
   );
 }
@@ -389,45 +555,15 @@ const styles = `
     color: #1D2822;
   }
 
-  .indoor-map {
+  .map-canvas {
+    position: absolute;
+    inset: 0;
+  }
+
+  .map-canvas canvas {
     display: block;
-    width: 100%;
-    height: 100%;
+    outline: none;
   }
-
-  .floor-plan {
-    animation: floor-in 260ms cubic-bezier(.2,.8,.2,1);
-  }
-
-  .space {
-    transition: filter 120ms ease, stroke-width 120ms ease;
-  }
-
-  .space:hover {
-    filter: brightness(.97);
-    stroke-width: 2.4;
-  }
-
-  .route-casing,
-  .route-line {
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .route-casing { stroke: #FFFFFF; stroke-width: 12; opacity: .96; }
-  .route-line { stroke: #1767E8; stroke-width: 7; }
-  .route-marker { stroke: #FFFFFF; stroke-width: 3; }
-  .route-marker.start { fill: #12A36D; }
-  .route-marker.destination { fill: #E64867; }
-  .route-marker-label {
-    fill: #17231D;
-    font-size: 12px;
-    font-weight: 800;
-    paint-order: stroke;
-    stroke: #FFFFFF;
-    stroke-width: 4px;
-  }
-  .space.selected { stroke-width: 4; }
 
   .map-header {
     position: absolute;
@@ -436,8 +572,8 @@ const styles = `
     left: 18px;
     display: flex;
     align-items: center;
-    gap: 12px;
-    width: 228px;
+    gap: 10px;
+    min-width: 228px;
     min-height: 58px;
     padding: 9px 13px;
     border: 1px solid #D0D9D4;
@@ -445,6 +581,18 @@ const styles = `
     background: rgba(255,255,255,.95);
     box-shadow: 0 8px 24px rgba(41,58,49,.12);
     backdrop-filter: blur(14px);
+  }
+
+  .back-button {
+    width: 34px;
+    height: 38px;
+    padding: 0 0 4px;
+    border: 0;
+    background: transparent;
+    color: #1D2822;
+    font-size: 27px;
+    line-height: 34px;
+    cursor: pointer;
   }
 
   .brand-mark {
@@ -458,6 +606,10 @@ const styles = `
     font-size: 10px;
     font-weight: 800;
   }
+
+  .map-header div { display: grid; gap: 2px; }
+  .map-header strong { font-size: 16px; line-height: 20px; }
+  .map-header div span { color: #68756E; font-size: 11px; line-height: 16px; }
 
   .search-panel {
     position: absolute;
@@ -552,22 +704,6 @@ const styles = `
   .no-results strong { font-size: 14px; }
   .no-results span { color: #738078; font-size: 12px; }
 
-  .map-header div {
-    display: grid;
-    gap: 2px;
-  }
-
-  .map-header strong {
-    font-size: 16px;
-    line-height: 20px;
-  }
-
-  .map-header div span {
-    color: #68756E;
-    font-size: 11px;
-    line-height: 16px;
-  }
-
   .floor-selector {
     position: absolute;
     z-index: 2;
@@ -598,96 +734,192 @@ const styles = `
   .floor-selector button.selected { background: #1767E8; color: white; }
   .floor-selector button:focus-visible { outline: 3px solid #8DB8FF; outline-offset: -3px; }
 
-  .map-legend {
+  .pending-chip {
     position: absolute;
-    z-index: 2;
-    right: 18px;
-    bottom: max(18px, env(safe-area-inset-bottom));
+    z-index: 3;
+    top: calc(max(18px, env(safe-area-inset-top)) + 62px);
+    left: 18px;
     display: flex;
-    gap: 14px;
-    padding: 9px 12px;
-    border: 1px solid #D0D9D4;
-    border-radius: 7px;
-    background: rgba(255,255,255,.92);
-    box-shadow: 0 6px 18px rgba(41,58,49,.1);
-    color: #59665F;
-    font-size: 11px;
-    backdrop-filter: blur(12px);
+    align-items: center;
+    gap: 8px;
+    padding: 9px 8px 9px 14px;
+    border-radius: 999px;
+    background: #123E8F;
+    box-shadow: 0 6px 18px rgba(18,62,143,.3);
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
   }
 
-  .map-legend span { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-  .map-legend i { width: 10px; height: 10px; border: 1px solid; border-radius: 2px; }
-  .map-legend i.room { background: #F7FAF8; border-color: #AAB6B0; }
-  .map-legend i.stairs { background: #E6F0FF; border-color: #6F94C9; }
-  .map-legend i.elevator { background: #DFF3E7; border-color: #5B9A70; }
+  .pending-chip button {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: #B9CDF2;
+    font-size: 16px;
+    line-height: 20px;
+    cursor: pointer;
+  }
 
-  .route-bar {
+  .pending-chip button:hover { color: white; }
+
+  .room-card {
     position: absolute;
     z-index: 3;
     left: 18px;
     bottom: max(18px, env(safe-area-inset-bottom));
     display: flex;
     align-items: center;
-    width: min(410px, calc(100% - 36px));
-    min-height: 64px;
-    padding: 10px 11px 10px 14px;
+    gap: 8px;
+    width: min(430px, calc(100% - 36px));
+    min-height: 66px;
+    padding: 10px 8px 10px 14px;
     border: 1px solid #CBD5D0;
-    border-radius: 8px;
-    background: rgba(255,255,255,.96);
+    border-radius: 10px;
+    background: rgba(255,255,255,.97);
     box-shadow: 0 8px 24px rgba(36,52,44,.14);
     backdrop-filter: blur(14px);
   }
 
-  .route-bar div { display: grid; min-width: 0; flex: 1; gap: 4px; padding-right: 10px; }
-  .route-bar strong,
-  .route-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .route-bar strong { font-size: 13px; line-height: 17px; }
-  .route-bar span { color: #68756E; font-size: 11px; line-height: 15px; }
-  .route-bar button {
+  .room-card-text { display: grid; min-width: 0; flex: 1; gap: 2px; }
+  .room-card-text strong { font-size: 16px; }
+  .room-card-text span { overflow: hidden; color: #68756E; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+
+  .room-card button {
     flex: 0 0 auto;
-    min-width: 84px;
+    min-width: 56px;
     height: 40px;
     padding: 0 12px;
     border: 0;
     border-radius: 7px;
     background: #1767E8;
-    color: #FFFFFF;
-    font-size: 12px;
-    font-weight: 800;
+    color: white;
+    font-size: 13px;
+    font-weight: 700;
     cursor: pointer;
   }
-  .route-bar button:hover { background: #0F58CF; }
-  .route-bar button.clear { background: #EDF1EF; color: #34413B; }
-  .route-bar button.clear:hover { background: #E1E7E4; }
-  .route-bar button:focus-visible { outline: 3px solid #8DB8FF; outline-offset: 2px; }
 
-  @keyframes floor-in {
-    from { opacity: 0; transform: translateY(5px); }
-    to { opacity: 1; transform: translateY(0); }
+  .room-card button:hover { background: #0F58CF; }
+  .room-card button.ghost { background: #EAF2FE; color: #185FCB; }
+  .room-card button.ghost:hover { background: #DBE9FD; }
+  .room-card button.close {
+    min-width: 32px;
+    width: 32px;
+    padding: 0;
+    background: transparent;
+    color: #66716C;
+    font-size: 22px;
+  }
+  .room-card button.close:hover { background: #F2F5F3; }
+
+  .route-panel {
+    position: absolute;
+    z-index: 3;
+    left: 18px;
+    bottom: max(18px, env(safe-area-inset-bottom));
+    overflow: hidden;
+    width: min(430px, calc(100% - 36px));
+    border: 1px solid #CBD5D0;
+    border-radius: 10px;
+    background: rgba(255,255,255,.97);
+    box-shadow: 0 8px 24px rgba(36,52,44,.14);
+    backdrop-filter: blur(14px);
+  }
+
+  .route-summary-row {
+    display: flex;
+    align-items: center;
+    padding: 11px 11px 11px 14px;
+    border-bottom: 1px solid #E4E9E6;
+  }
+
+  .route-summary-row > div { display: grid; min-width: 0; flex: 1; gap: 3px; padding-right: 10px; }
+  .route-summary-row strong,
+  .route-summary-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .route-summary-row strong { font-size: 14px; }
+  .route-summary-row span { color: #68756E; font-size: 11px; }
+
+  .route-summary-row button {
+    flex: 0 0 auto;
+    height: 36px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 7px;
+    background: #EDF1EF;
+    color: #34413B;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .route-summary-row button:hover { background: #E1E7E4; }
+
+  .step-list {
+    max-height: 236px;
+    margin: 0;
+    padding: 4px 0;
+    overflow-y: auto;
+    list-style: none;
+  }
+
+  .step-list button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 46px;
+    padding: 6px 14px;
+    border: 0;
+    background: transparent;
+    color: #25302B;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .step-list button:hover { background: #F3F7F5; }
+  .step-list button.active { background: #EEF4FD; color: #123E8F; font-weight: 700; }
+  .step-list i {
+    width: 22px;
+    color: #5A6660;
+    font-size: 15px;
+    font-style: normal;
+    text-align: center;
+  }
+  .step-list button.active i { color: #1767E8; }
+  .step-list span { flex: 1; line-height: 18px; }
+  .step-list b { color: #8B968F; font-size: 11px; }
+
+  .map-attribution {
+    position: absolute;
+    z-index: 2;
+    right: 8px;
+    bottom: 4px;
+    color: #6D7A73;
+    font-size: 10px;
+    text-shadow: 0 1px 0 rgba(255,255,255,.8);
+    pointer-events: none;
   }
 
   @media (max-width: 560px) {
-    .map-header { top: max(12px, env(safe-area-inset-top)); left: 12px; width: 210px; }
-    .floor-selector { top: max(12px, env(safe-area-inset-top)); right: 12px; }
+    .map-header { top: max(12px, env(safe-area-inset-top)); left: 12px; min-width: 210px; }
+    .floor-selector { top: calc(max(12px, env(safe-area-inset-top)) + 66px); right: 12px; }
     .search-panel {
       top: calc(max(12px, env(safe-area-inset-top)) + 66px);
       left: 12px;
       width: calc(100% - 84px);
       transform: none;
     }
-    .space-label { font-size: 18px; stroke-width: 3.5px; }
-    .space-label.compact { font-size: 13px; }
-    .map-legend { display: none; }
-    .route-bar {
+    .pending-chip { top: calc(max(12px, env(safe-area-inset-top)) + 122px); left: 12px; }
+    .room-card, .route-panel {
       right: 12px;
       bottom: max(12px, env(safe-area-inset-bottom));
       left: 12px;
       width: auto;
     }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .floor-plan { animation: none; }
-    .space { transition: none; }
+    .step-list { max-height: 190px; }
   }
 `;
