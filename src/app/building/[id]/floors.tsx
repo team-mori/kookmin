@@ -77,7 +77,8 @@ export default function BuildingFloorsScreen() {
       <View style={styles.spacer} />
 
       <BottomActionBar>
-        <Button label="보러 가기" type="cta" size={52} onPress={() => router.push({ pathname: "/building/[id]", params: { id: building.id } })} />
+        {/* ponytail: 지금은 캠퍼스 뷰로 복귀만 — place 파람 기반 실내 자동 진입은 딥링크 단계에서 */}
+        <Button label="보러 가기" type="cta" size={52} onPress={() => router.push("/")} />
       </BottomActionBar>
       <View style={{ height: insets.bottom + 8 }} />
     </View>

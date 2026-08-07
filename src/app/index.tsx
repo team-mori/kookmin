@@ -8,6 +8,7 @@ import {
   type ViewStateChangeEvent
 } from "@maplibre/maplibre-react-native";
 import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
 import { useMemo, useRef, useState } from "react";
 import type { NativeSyntheticEvent } from "react-native";
 import {
@@ -19,6 +20,10 @@ import {
   View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { Icon } from "@/shared/components/Icon";
+import { EmptyState } from "@/shared/components/empty-state";
+import { theme } from "@/shared/styles";
 
 import { ENGINEERING_BUILDING } from "../data/engineering-building";
 import {
@@ -75,6 +80,7 @@ const roomTitle = (room: EngineeringRoomSearchResult) => `${room.roomNumber}호`
 export default function CampusMapScreen() {
   const cameraRef = useRef<CameraRef>(null);
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [floor, setFloor] = useState<EngineeringFloor>(1);
   const [indoorVisible, setIndoorVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -116,14 +122,6 @@ export default function CampusMapScreen() {
     });
   };
 
-  const openBuilding = () => {
-    cameraRef.current?.flyTo({
-      ...BUILDING_CAMERA,
-      duration: FLY_DURATION_MS,
-      padding: { top: 96, right: 24, bottom: 120, left: 24 }
-    });
-  };
-
   const backToCampus = () => {
     setSelectedRoom(null);
     cameraRef.current?.easeTo({
@@ -151,7 +149,10 @@ export default function CampusMapScreen() {
   };
 
   const handleBuildingPress = () => {
-    if (!indoorVisible) openBuilding();
+    // 시안 흐름: 캠퍼스 뷰에서 건물 탭 → 건물 상세 화면. 실내 진입은 상세의 [보러 가기]로.
+    if (!indoorVisible) {
+      router.push({ pathname: "/building/[id]", params: { id: "engineering" } });
+    }
   };
 
   const handleSpacePress = (
@@ -338,6 +339,7 @@ export default function CampusMapScreen() {
 
         <View style={styles.searchArea}>
           <View style={styles.searchBar}>
+            <Icon name="search" size={18} color={theme.color.icon.tertiary} />
             <TextInput
               accessibilityLabel="호실 또는 장소 검색"
               autoCapitalize="none"
@@ -347,13 +349,13 @@ export default function CampusMapScreen() {
                 setSearchOpen(true);
               }}
               onFocus={() => setSearchOpen(true)}
-              placeholder="호실 또는 장소 검색"
-              placeholderTextColor="#7A8580"
+              placeholder="건물 또는 호실을 검색해보세요"
+              placeholderTextColor={theme.color.text.quaternary}
               returnKeyType="search"
               style={styles.searchInput}
               value={searchQuery}
             />
-            {(hasSearchQuery || selectedRoom) && (
+            {hasSearchQuery || selectedRoom ? (
               <Pressable
                 accessibilityLabel="검색 초기화"
                 accessibilityRole="button"
@@ -364,8 +366,12 @@ export default function CampusMapScreen() {
                   pressed && styles.controlPressed
                 ]}
               >
-                <Text style={styles.searchResetIcon}>×</Text>
+                <Icon name="x" size={18} color={theme.color.icon.tertiary} />
               </Pressable>
+            ) : (
+              <View style={styles.searchAvatar}>
+                <Text style={styles.searchAvatarLabel}>K</Text>
+              </View>
             )}
           </View>
 
@@ -395,12 +401,7 @@ export default function CampusMapScreen() {
                   </Pressable>
                 ))
               ) : (
-                <View style={styles.noResults}>
-                  <Text style={styles.noResultsTitle}>검색 결과가 없습니다</Text>
-                  <Text style={styles.noResultsText}>
-                    호실 번호 또는 장소명을 확인해 주세요.
-                  </Text>
-                </View>
+                <EmptyState type="search" />
               )}
             </View>
           )}
@@ -613,14 +614,13 @@ const styles = StyleSheet.create({
   },
   searchBar: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.97)",
-    borderColor: "#D4DBD8",
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: theme.color.bg.primary,
+    borderRadius: 18,
     flexDirection: "row",
-    minHeight: 48,
-    paddingLeft: 14,
-    paddingRight: 6,
+    gap: 10,
+    minHeight: 52,
+    paddingLeft: 16,
+    paddingRight: 10,
     shadowColor: "#111827",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,
@@ -640,10 +640,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 40
   },
-  searchResetIcon: {
-    color: "#66716C",
-    fontSize: 25,
-    lineHeight: 28
+  searchAvatar: {
+    alignItems: "center",
+    backgroundColor: theme.color.bg.interactive.selected,
+    borderRadius: 999,
+    height: 32,
+    justifyContent: "center",
+    width: 32
+  },
+  searchAvatarLabel: {
+    color: theme.color.text.interactive.primary,
+    fontSize: 14,
+    fontWeight: "700"
   },
   searchResults: {
     backgroundColor: "rgba(255, 255, 255, 0.98)",
@@ -685,9 +693,9 @@ const styles = StyleSheet.create({
     marginTop: 2
   },
   searchResultFloor: {
-    backgroundColor: "#EAF2FE",
-    borderRadius: 5,
-    color: "#185FCB",
+    backgroundColor: theme.color.bg.interactive.selected,
+    borderRadius: 999,
+    color: theme.color.text.interactive.primary,
     fontSize: 11,
     fontWeight: "700",
     marginLeft: 10,

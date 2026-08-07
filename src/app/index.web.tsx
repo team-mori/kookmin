@@ -1,4 +1,5 @@
 import maplibregl from "maplibre-gl";
+import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ENGINEERING_BUILDING } from "../data/engineering-building";
@@ -57,6 +58,7 @@ const ROOM_PADDING = { top: 170, right: 40, bottom: 230, left: 40 };
 const roomTitle = (room: EngineeringRoomSearchResult) => `${room.roomNumber}호`;
 
 export default function CampusMapWebScreen() {
+  const router = useRouter();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const indoorVisibleRef = useRef(false);
@@ -189,13 +191,8 @@ export default function CampusMapWebScreen() {
 
     const openBuilding = () => {
       if (indoorVisibleRef.current) return;
-      map.flyTo({
-        center: BUILDING_CAMERA.center as [number, number],
-        zoom: BUILDING_CAMERA.zoom,
-        pitch: BUILDING_CAMERA.pitch,
-        duration: FLY_DURATION_MS,
-        padding: { top: 96, right: 24, bottom: 120, left: 24 }
-      });
+      // 시안 흐름: 캠퍼스 뷰에서 건물 클릭 → 건물 상세 화면
+      router.push({ pathname: "/building/[id]", params: { id: "engineering" } });
     };
     map.on("click", "building-fill", openBuilding);
     map.on("click", "building-label", openBuilding);
@@ -377,6 +374,9 @@ export default function CampusMapWebScreen() {
 
       <section className="search-panel" aria-label="호실 검색">
         <div className="search-bar">
+          <svg className="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+          </svg>
           <input
             aria-label="호실 또는 장소 검색"
             autoCapitalize="none"
@@ -386,12 +386,12 @@ export default function CampusMapWebScreen() {
               setSearchOpen(true);
             }}
             onFocus={() => setSearchOpen(true)}
-            placeholder="호실 또는 장소 검색"
+            placeholder="건물 또는 호실을 검색해보세요"
             spellCheck={false}
             type="search"
             value={searchQuery}
           />
-          {(hasSearchQuery || selectedRoom) && (
+          {hasSearchQuery || selectedRoom ? (
             <button
               aria-label="검색 초기화"
               className="search-reset"
@@ -400,6 +400,8 @@ export default function CampusMapWebScreen() {
             >
               ×
             </button>
+          ) : (
+            <span aria-hidden className="search-avatar">K</span>
           )}
         </div>
 
@@ -424,7 +426,7 @@ export default function CampusMapWebScreen() {
               ))
             ) : (
               <div className="no-results">
-                <strong>검색 결과가 없습니다</strong>
+                <strong>등록되지 않은 장소예요</strong>
                 <span>호실 번호 또는 장소명을 확인해 주세요.</span>
               </div>
             )}
@@ -623,13 +625,28 @@ const styles = `
   .search-bar {
     display: flex;
     align-items: center;
-    min-height: 48px;
-    padding: 0 5px 0 14px;
-    border: 1px solid #D0D9D4;
-    border-radius: 8px;
-    background: rgba(255,255,255,.97);
+    gap: 10px;
+    min-height: 52px;
+    padding: 0 10px 0 16px;
+    border: 0;
+    border-radius: 18px;
+    background: #fff;
     box-shadow: 0 8px 24px rgba(41,58,49,.12);
-    backdrop-filter: blur(14px);
+  }
+
+  .search-icon { flex: none; color: #8B95A1; }
+
+  .search-avatar {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: #eaf9f1;
+    color: #0ca35b;
+    font-size: 14px;
+    font-weight: 700;
   }
 
   .search-bar input {
@@ -693,10 +710,10 @@ const styles = `
   .search-result small { overflow: hidden; color: #66716C; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
   .search-result b {
     margin-left: 10px;
-    padding: 4px 7px;
-    border-radius: 5px;
-    background: #EAF2FE;
-    color: #185FCB;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: #eaf9f1;
+    color: #0a8c4e;
     font-size: 11px;
   }
 
