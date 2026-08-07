@@ -1,0 +1,452 @@
+{
+  "_meta": {
+    "source": "Figma · QUICKMEAT Design system guide (K34ypwrbG04sMtG0SihZoH)",
+    "note": "Figma 변수의 거울. 플러그인 export가 잃어버린 알파값과 0을 복원한 것 외에는 손대지 않음. 재export 시 알파가 다시 #000000으로 뭉개지므로 아래 항목을 반드시 다시 채울 것.",
+    "alpha_restored": [
+      "transparent/12",
+      "transparent/16",
+      "transparent/20",
+      "transparent/24",
+      "transparent/32",
+      "transparent/60",
+      "color/effect/shadow/cast",
+      "color/effect/shadow/core",
+      "color/bg/dim-60%",
+      "color/bg/dim-32%"
+    ]
+  },
+  "Primitive : Color": {
+    "base": {
+      "black": "#000000",
+      "white": "#ffffff"
+    },
+    "deep blue": {
+      "50": "#ebedf7",
+      "100": "#d4daee",
+      "200": "#aab4db",
+      "300": "#8291cb",
+      "400": "#5d70bb",
+      "500": "#3950ac",
+      "600": "#304492",
+      "700": "#28397a",
+      "800": "#202e62",
+      "900": "#1a244d"
+    },
+    "neutral": {
+      "50": "#fafafa",
+      "100": "#f5f5f5",
+      "200": "#e5e5e5",
+      "300": "#d4d4d4",
+      "400": "#a1a1a1",
+      "500": "#737373",
+      "600": "#525252",
+      "700": "#404040",
+      "800": "#262626",
+      "900": "#171717"
+    },
+    "red": {
+      "50": "#fef2f2",
+      "100": "#ffe2e2",
+      "200": "#ffc9c9",
+      "300": "#ffa2a2",
+      "400": "#ff6467",
+      "450": "#f84952",
+      "500": "#fb2c36",
+      "600": "#e7000b",
+      "700": "#c10007",
+      "800": "#9f0712",
+      "900": "#82181a"
+    },
+    "yellow": {
+      "50": "#fefce8",
+      "100": "#fef9c2",
+      "200": "#fff085",
+      "300": "#ffdf20",
+      "400": "#fdc700",
+      "500": "#f0b100",
+      "600": "#d08700",
+      "700": "#a65f00",
+      "800": "#894b00",
+      "900": "#733e0a"
+    },
+    "green": {
+      "50": "#f0fdf4",
+      "100": "#dcfce7",
+      "200": "#b9f8cf",
+      "300": "#7bf1a8",
+      "400": "#05df72",
+      "500": "#00c950",
+      "600": "#00a63e",
+      "700": "#008236",
+      "800": "#016630",
+      "900": "#0d542b"
+    },
+    "blue": {
+      "50": "#eff6ff",
+      "100": "#dbeafe",
+      "200": "#bedbff",
+      "300": "#8ec5ff",
+      "400": "#51a2ff",
+      "500": "#2b7fff",
+      "600": "#155dfc",
+      "700": "#1447e6",
+      "800": "#193cb8",
+      "900": "#1c398e",
+      "900 2": "#1c398e"
+    },
+    "transparent": {
+      "12": "#0000001f",
+      "16": "#00000029",
+      "20": "#00000033",
+      "24": "#0000003d",
+      "32": "#00000052",
+      "60": "#00000099"
+    },
+    "kakaotalk yellow": {
+      "500": "#fee500"
+    }
+  },
+  "Theme : Color": {
+    "Color": {
+      "brand": {
+        "primary": {
+          "50": "#ebedf7",
+          "100": "#d4daee",
+          "200": "#aab4db",
+          "300": "#8291cb",
+          "400": "#5d70bb",
+          "500": "#3950ac",
+          "600": "#304492",
+          "700": "#28397a",
+          "800": "#202e62",
+          "900": "#1a244d"
+        },
+        "secondary": {
+          "50": "#fafafa",
+          "100": "#f5f5f5",
+          "200": "#e5e5e5",
+          "300": "#d4d4d4",
+          "400": "#a1a1a1",
+          "500": "#737373",
+          "600": "#525252",
+          "700": "#404040",
+          "800": "#262626",
+          "900": "#171717"
+        }
+      }
+    }
+  },
+  "Semantic : Color": {
+    "color": {
+      "text": {
+        "primary": "#171717",
+        "secondary": "#404040",
+        "tertiary": "#737373",
+        "info": "#155dfc",
+        "warning": "#d08700",
+        "success": "#00a63e",
+        "danger": "#e7000b",
+        "info-bold": "#193cb8",
+        "warning-bold": "#894b00",
+        "success-bold": "#016630",
+        "danger-bold": "#9f0712",
+        "interactive": {
+          "primary": "#3950ac",
+          "primary-pressed": "#28397a",
+          "secondary": "#525252",
+          "secondary-pressed": "#404040",
+          "selected": "#3950ac",
+          "inverse": "#ffffff"
+        },
+        "disabled": "#a1a1a1",
+        "quaternary": "#a1a1a1"
+      },
+      "icon": {
+        "primary": "#171717",
+        "interactive": {
+          "primary": "#3950ac",
+          "primary-pressed": "#202e62",
+          "secondary": "#525252",
+          "Secondary-pressed": "#404040",
+          "selected": "#3950ac",
+          "inverse": "#ffffff"
+        },
+        "secondary": "#404040",
+        "info": "#155dfc",
+        "warning": "#d08700",
+        "success": "#00a63e",
+        "danger": "#e7000b",
+        "disabled": "#a1a1a1",
+        "tertiary": "#737373",
+        "quaternary": "#a1a1a1",
+        "brand": "#3950ac"
+      },
+      "bg": {
+        "primary": "#ffffff",
+        "interactive": {
+          "primary": "#3950ac",
+          "primary-pressed": "#28397a",
+          "secondary": "#f5f5f5",
+          "Secondary-pressed": "#e5e5e5",
+          "selected": "#ebedf7",
+          "danger": "#e7000b",
+          "danger-pressed": "#c10007",
+          "selected-pressed": "#d4daee",
+          "secondary selected": "#eff6ff",
+          "secondary selected-pressed 2": "#dbeafe",
+          "tertiary": "#d4d4d4",
+          "tertiary-pressed": "#a1a1a1",
+          "kakaotalk-login": "#fee500"
+        },
+        "secondary": "#fafafa",
+        "tertiary": "#f5f5f5",
+        "info-subtle": "#eff6ff",
+        "info-bold": "#1447e6",
+        "warning-subtle": "#fefce8",
+        "warning-bold": "#f0b100",
+        "success-subtle": "#f0fdf4",
+        "success-bold": "#008236",
+        "danger-subtle": "#fef2f2",
+        "danger-bold": "#c10007",
+        "disabled": "#d4d4d4",
+        "brand": "#3950ac",
+        "inverse-bold": "#404040",
+        "inverse-bolder": "#262626",
+        "secodary disabled": "#eff6ff",
+        "dim-60%": "#00000099",
+        "dim-32%": "#00000052",
+        "danger-meddle": "#f84952"
+      },
+      "border": {
+        "primary": "#a1a1a1",
+        "interactive": {
+          "primary": "#3950ac",
+          "primary-pressed": "#28397a",
+          "secondary": "#155dfc",
+          "tertiary-pressed": "#737373",
+          "danger": "#e7000b",
+          "danger-pressed": "#c10007",
+          "tertiary": "#a1a1a1",
+          "secondary-pressed": "#193cb8"
+        },
+        "secondary": "#e5e5e5",
+        "tertiary": "#f5f5f5",
+        "info-subtle": "#eff6ff",
+        "info": "#1447e6",
+        "warning-subtle": "#fefce8",
+        "warning": "#f0b100",
+        "success-subtle": "#f0fdf4",
+        "success": "#008236",
+        "danger-subtle": "#fef2f2",
+        "danger": "#c10007",
+        "disabled": "#a1a1a1"
+      },
+      "effect": {
+        "shadow": {
+          "cast": "#00000029",
+          "core": "#0000001f"
+        }
+      }
+    }
+  },
+  "Primitive : Typography": {
+    "font family": {
+      "typeface": {
+        "sans": "Pretendard"
+      },
+      "system": {
+        "android": "Roboto",
+        "IOS": "SF pro"
+      }
+    },
+    "font size": {
+      "300": "12",
+      "350": "14",
+      "400": "16",
+      "500": "20",
+      "600": "24",
+      "700": "28",
+      "900": "36",
+      "1000": "40",
+      "1200": "48"
+    },
+    "line height": {
+      "300": "12",
+      "350": "14",
+      "400": "16",
+      "500": "20",
+      "600": "24",
+      "700": "28",
+      "800": "32",
+      "900": "36",
+      "1000": "40",
+      "1200": "48",
+      "1400": "56"
+    },
+    "font style": {
+      "normal": {
+        "thin": "100",
+        "extra light": "200",
+        "light": "300",
+        "regular": "400",
+        "medium": "500",
+        "semibold": "600",
+        "bold": "700",
+        "extrabold": "800",
+        "black": "900"
+      }
+    },
+    "letter spacing": {
+      "tighter": "-0.4000000059604645",
+      "tight": "-0.20000000298023224",
+      "narmal": "0",
+      "loose": "0.20000000298023224",
+      "looser": "0.4000000059604645",
+      "loosest": "1",
+      "expanded": "1.5"
+    }
+  },
+  "Semantic :  Typograhy": {
+    "Heading": {
+      "font family": "Pretendard",
+      "letter spacing": "-0.20000000298023224",
+      "2xl": {
+        "font size": "36",
+        "line height": "40",
+        "font weight": "600"
+      },
+      "xl": {
+        "font size": "28",
+        "line height": "36",
+        "font weight": "600"
+      },
+      "lg": {
+        "font size": "24",
+        "line height": "32",
+        "font weight": "600"
+      },
+      "md": {
+        "font size": "20",
+        "line height": "28",
+        "font weight": "600"
+      },
+      "sm": {
+        "font size": "16",
+        "line height": "24",
+        "font weight": "600"
+      }
+    },
+    "Body": {
+      "font family": "Pretendard",
+      "lg": {
+        "letter spacing": "0",
+        "font size": "16",
+        "line height": "24"
+      },
+      "font weight": {
+        "semibold": "600",
+        "medium": "500",
+        "regular": "400",
+        "Bold": "700"
+      },
+      "md": {
+        "font size": "14",
+        "line height": "20",
+        "letter spacing": "0"
+      },
+      "sm": {
+        "font size": "12",
+        "line height": "16",
+        "letter spacing": "0"
+      }
+    }
+  },
+  "Primitive : Measurement": {
+    "unit": {
+      "0": "0",
+      "1": "1",
+      "2": "2",
+      "4": "4",
+      "8": "8",
+      "12": "12",
+      "16": "16",
+      "20": "20",
+      "24": "24",
+      "32": "32",
+      "36": "36",
+      "40": "40",
+      "48": "48",
+      "64": "64",
+      "half": "0.5"
+    },
+    "percentage": {
+      "0": "0",
+      "20": "20",
+      "40": "40",
+      "60": "60",
+      "80": "80",
+      "100": "100"
+    }
+  },
+  "Semantic : Appearance": {
+    "spacing": {
+      "0": "0",
+      "2": "2",
+      "4": "4",
+      "8": "8",
+      "12": "12",
+      "16": "16",
+      "20": "20",
+      "24": "24",
+      "32": "32",
+      "36": "36",
+      "40": "40",
+      "48": "48",
+      "64": "64"
+    },
+    "border": {
+      "radius": {
+        "sm": "2",
+        "md": "4",
+        "lg": "8",
+        "xl": "12",
+        "2xl": "16",
+        "rounded": "9999"
+      },
+      "width": {
+        "sm": "1",
+        "md": "2",
+        "lg": "4",
+        "xs": "0.5"
+      }
+    },
+    "effect": {
+      "shadow": {
+        "2": {
+          "cast-y": "1",
+          "cast-blur": "2",
+          "core-y": "0",
+          "core-blur": "1"
+        },
+        "4": {
+          "cast-y": "2",
+          "cast-blur": "4",
+          "core-y": "0",
+          "core-blur": "2"
+        },
+        "8": {
+          "cast-y": "4",
+          "cast-blur": "8",
+          "core-y": "0",
+          "core-blur": "4"
+        },
+        "16": {
+          "cast-y": "8",
+          "cast-blur": "16",
+          "core-y": "0",
+          "core-blur": "8"
+        }
+      }
+    }
+  }
+}

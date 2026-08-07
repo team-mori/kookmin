@@ -1,0 +1,51 @@
+// Lucide 어댑터 — quickmeat의 Feather SVG 맵을 lucide-react-native로 교체.
+// IconName 타입은 이 맵의 키에서 파생되므로, 아이콘이 필요해지면 여기에만 추가한다.
+import {
+  ArrowUpRight,
+  Bookmark,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  CircleX,
+  Ellipsis,
+  EllipsisVertical,
+  Info,
+  Layers,
+  Locate,
+  LocateFixed,
+  MapPin,
+  Menu,
+  Minus,
+  Navigation,
+  RefreshCw,
+  Search,
+  Share2,
+  X
+} from "lucide-react-native";
+
+export const iconMap = {
+  "arrow-up-right": ArrowUpRight,
+  bookmark: Bookmark,
+  check: Check,
+  "chevron-down": ChevronDown,
+  "chevron-left": ChevronLeft,
+  "chevron-right": ChevronRight,
+  "chevron-up": ChevronUp,
+  ellipsis: Ellipsis,
+  "ellipsis-vertical": EllipsisVertical,
+  info: Info,
+  layers: Layers,
+  locate: Locate,
+  "locate-fixed": LocateFixed,
+  "map-pin": MapPin,
+  menu: Menu,
+  minus: Minus,
+  navigation: Navigation,
+  "refresh-cw": RefreshCw,
+  search: Search,
+  share: Share2,
+  x: X,
+  "x-circle": CircleX
+} as const;
