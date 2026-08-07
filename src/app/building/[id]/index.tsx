@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, type IconName } from "@/shared/components/Icon";
+import { IsoBuilding } from "@/shared/components/building-art";
 import { Chip } from "@/shared/components/chip";
 import { EmptyState } from "@/shared/components/empty-state";
 import { theme } from "@/shared/styles";
@@ -50,7 +51,7 @@ export default function BuildingDetailScreen() {
       </View>
 
       <View style={styles.illustCard}>
-        <Text style={styles.illustPlaceholder}>건물 일러스트{"\n"}(AI 생성 이미지 자리)</Text>
+        <IsoBuilding width={355} height={320} />
         {building.floors
           .filter((f) => f.placeCount > 0)
           .map((f, i) => {

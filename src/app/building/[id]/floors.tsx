@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/shared/components/Icon";
+import { ElevationBuilding } from "@/shared/components/building-art";
 import { Chip } from "@/shared/components/chip";
 import { Button } from "@/shared/components/input/Button";
 import { BottomActionBar } from "@/shared/components/input/BottomActionBar";
@@ -36,7 +37,7 @@ export default function BuildingFloorsScreen() {
         </View>
 
         <View style={styles.elevation}>
-          <Text style={styles.elevationPlaceholder}>건물 입면 일러스트{"\n"}(AI 생성 이미지 자리)</Text>
+          <ElevationBuilding width={321} height={331} />
           {building.floors.map((f, i) => {
             const selected = f.id === floorId;
             return (
