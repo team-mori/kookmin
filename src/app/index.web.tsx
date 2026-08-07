@@ -1,5 +1,5 @@
 import maplibregl from "maplibre-gl";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { EngineeringFloor } from "../data/buildings/engineering";
@@ -21,6 +21,7 @@ import {
 } from "../data/engineering-route";
 import {
   findEngineeringRoom,
+  findPlace,
   parsePlaceId,
   placeIdFor,
   searchFallback,
@@ -348,6 +349,15 @@ export default function CampusMapWebScreen() {
       zoom: 16.5
     });
   };
+
+  // 공유 링크(/place/[id] → ?place=) 진입 처리 — 지도 로드 완료 후 실행.
+  const { place: placeParam } = useLocalSearchParams<{ place?: string }>();
+  useEffect(() => {
+    if (typeof placeParam !== "string" || !mapReady) return;
+    const place = findPlace(placeParam);
+    if (place) selectPlace(place);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placeParam, mapReady]);
 
   const [shareCopied, setShareCopied] = useState(false);
   const shareRoom = (room: EngineeringRoomSearchResult) => {

@@ -8,8 +8,8 @@ import {
   type ViewStateChangeEvent
 } from "@maplibre/maplibre-react-native";
 import { StatusBar } from "expo-status-bar";
-import { useRouter } from "expo-router";
-import { useMemo, useRef, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { NativeSyntheticEvent } from "react-native";
 import {
   Pressable,
@@ -45,6 +45,7 @@ import {
 } from "../data/engineering-route";
 import {
   findEngineeringRoom,
+  findPlace,
   parsePlaceId,
   placeIdFor,
   searchFallback,
@@ -203,6 +204,16 @@ export default function CampusMapScreen() {
       zoom: 16.5
     });
   };
+
+  // 공유 링크(/place/[id] → ?place=) 진입 처리.
+  // ponytail: 지도 로드 완료 게이트 없이 즉시 이동 — 콜드 스타트에서 어긋나면 onDidFinishLoadingMap 게이트 추가
+  const { place: placeParam } = useLocalSearchParams<{ place?: string }>();
+  useEffect(() => {
+    if (typeof placeParam !== "string") return;
+    const place = findPlace(placeParam);
+    if (place) selectPlace(place);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placeParam]);
 
   const shareRoom = (room: EngineeringRoomSearchResult) => {
     // 명세 2.6 공유 링크 — 배포 전에는 SHARE_BASE_URL이 자리표시 도메인이다.
