@@ -8,7 +8,8 @@ import {
   CAMPUS_BUILDINGS_GEOJSON,
   CAMPUS_LABELS_GEOJSON,
   findBuilding,
-  floorLabel
+  floorLabel,
+  SHARE_BASE_URL
 } from "../data/campus";
 import { indoorDataFor } from "../data/indoor-geometry";
 import {
@@ -21,6 +22,7 @@ import {
 import {
   findEngineeringRoom,
   parsePlaceId,
+  placeIdFor,
   searchFallback,
   searchPlaces,
   type EngineeringRoomSearchResult
@@ -347,6 +349,14 @@ export default function CampusMapWebScreen() {
     });
   };
 
+  const [shareCopied, setShareCopied] = useState(false);
+  const shareRoom = (room: EngineeringRoomSearchResult) => {
+    const url = `${SHARE_BASE_URL}/place/${placeIdFor("engineering", room.id)}`;
+    void navigator.clipboard?.writeText(url);
+    setShareCopied(true);
+    window.setTimeout(() => setShareCopied(false), 1600);
+  };
+
   const resetSearch = () => {
     setSearchQuery("");
     setSearchOpen(false);
@@ -558,9 +568,16 @@ export default function CampusMapWebScreen() {
           <div className="room-card-text">
             <strong>{roomTitle(selectedRoom)}</strong>
             <span>
-              {selectedRoom.name} · 공학관 {selectedRoom.floor}층
+              {selectedRoom.name} · 공학관 {floorLabel(selectedRoom.floor)}
             </span>
           </div>
+          <button
+            className="ghost"
+            onClick={() => shareRoom(selectedRoom)}
+            type="button"
+          >
+            {shareCopied ? "복사됨" : "공유"}
+          </button>
           <button
             className="ghost"
             onClick={() => setAsOrigin(selectedRoom)}

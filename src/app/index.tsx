@@ -14,6 +14,7 @@ import type { NativeSyntheticEvent } from "react-native";
 import {
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -30,7 +31,8 @@ import {
   CAMPUS_BUILDINGS_GEOJSON,
   CAMPUS_LABELS_GEOJSON,
   findBuilding,
-  floorLabel
+  floorLabel,
+  SHARE_BASE_URL
 } from "../data/campus";
 import { indoorDataFor } from "../data/indoor-geometry";
 import type { EngineeringFloor } from "../data/buildings/engineering";
@@ -44,6 +46,7 @@ import {
 import {
   findEngineeringRoom,
   parsePlaceId,
+  placeIdFor,
   searchFallback,
   searchPlaces,
   type EngineeringRoomSearchResult
@@ -198,6 +201,13 @@ export default function CampusMapScreen() {
       center: place.center,
       duration: FLY_DURATION_MS,
       zoom: 16.5
+    });
+  };
+
+  const shareRoom = (room: EngineeringRoomSearchResult) => {
+    // 명세 2.6 공유 링크 — 배포 전에는 SHARE_BASE_URL이 자리표시 도메인이다.
+    void Share.share({
+      message: `${SHARE_BASE_URL}/place/${placeIdFor("engineering", room.id)}`
     });
   };
 
@@ -592,6 +602,17 @@ export default function CampusMapScreen() {
               <Text style={styles.roomCardButtonText}>도착</Text>
             </Pressable>
             <Pressable
+              accessibilityLabel={`${roomTitle(selectedRoom)} 공유`}
+              accessibilityRole="button"
+              onPress={() => shareRoom(selectedRoom)}
+              style={({ pressed }) => [
+                styles.roomCardShare,
+                pressed && styles.controlPressed
+              ]}
+            >
+              <Icon name="share" size={17} color={theme.color.icon.secondary} />
+            </Pressable>
+            <Pressable
               accessibilityLabel="호실 정보 닫기"
               accessibilityRole="button"
               hitSlop={6}
@@ -906,6 +927,14 @@ const styles = StyleSheet.create({
     color: "#B9CDF2",
     fontSize: 17,
     lineHeight: 18
+  },
+  roomCardShare: {
+    alignItems: "center",
+    backgroundColor: theme.color.primitive.neutral[100],
+    borderRadius: 999,
+    height: 40,
+    justifyContent: "center",
+    width: 40
   },
   roomCard: {
     alignItems: "center",
