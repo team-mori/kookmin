@@ -20,9 +20,12 @@ import {
 } from "../data/engineering-route";
 import {
   findEngineeringRoom,
-  searchEngineeringRooms,
+  parsePlaceId,
+  searchFallback,
+  searchPlaces,
   type EngineeringRoomSearchResult
-} from "../data/engineering-search";
+} from "../data/campus-search";
+import type { Place } from "../data/campus-types";
 import {
   BUILDING_CAMERA,
   BUILDING_LABEL_GEOJSON,
@@ -77,8 +80,12 @@ export default function CampusMapWebScreen() {
     useState<EngineeringRoomSearchResult | null>(null);
   const [activeStep, setActiveStep] = useState(0);
 
-  const searchResults = searchEngineeringRooms(searchQuery);
+  const searchResults = searchPlaces(searchQuery);
   const hasSearchQuery = searchQuery.trim().length > 0;
+  const fallback =
+    hasSearchQuery && searchResults.length === 0
+      ? searchFallback(searchQuery)
+      : null;
 
   const activeBuilding = activeBuildingId
     ? findBuilding(activeBuildingId)
@@ -321,6 +328,25 @@ export default function CampusMapWebScreen() {
     focusRoom(room);
   };
 
+  const selectPlace = (place: Place) => {
+    if (place.kind === "room") {
+      const { spaceId } = parsePlaceId(place.id);
+      const room = spaceId ? findEngineeringRoom(spaceId) : undefined;
+      if (room) selectRoom(room);
+      return;
+    }
+    setSearchOpen(false);
+    if (place.kind === "building") {
+      router.push({ pathname: "/building/[id]", params: { id: place.id } });
+      return;
+    }
+    mapRef.current?.flyTo({
+      center: place.center,
+      duration: FLY_DURATION_MS,
+      zoom: 16.5
+    });
+  };
+
   const resetSearch = () => {
     setSearchQuery("");
     setSearchOpen(false);
@@ -437,26 +463,58 @@ export default function CampusMapWebScreen() {
         {searchOpen && hasSearchQuery && (
           <div className="search-results" role="listbox">
             {searchResults.length > 0 ? (
-              searchResults.map((room) => (
+              searchResults.map((place) => (
                 <button
-                  key={room.id}
-                  aria-label={`${room.roomNumber}호 ${room.name}, ${room.floor}층`}
+                  key={place.id}
+                  aria-label={`${place.title} ${place.subtitle ?? ""}`}
                   className="search-result"
-                  onClick={() => selectRoom(room)}
+                  onClick={() => selectPlace(place)}
                   role="option"
                   type="button"
                 >
                   <span>
-                    <strong>{room.roomNumber}호</strong>
-                    <small>{room.name}</small>
+                    <strong>{place.title}</strong>
+                    <small>{place.subtitle ?? ""}</small>
                   </span>
-                  <b>{room.floor}F</b>
+                  {place.kind === "room" && place.floor !== undefined && (
+                    <b>{floorLabel(place.floor)}</b>
+                  )}
                 </button>
               ))
             ) : (
               <div className="no-results">
                 <strong>등록되지 않은 장소예요</strong>
                 <span>호실 번호 또는 장소명을 확인해 주세요.</span>
+                {fallback?.building && (
+                  <button
+                    className="search-result"
+                    onClick={() => selectPlace(fallback.building!)}
+                    type="button"
+                  >
+                    <span>
+                      <strong>{fallback.building.title}</strong>
+                      <small>건물로 이동</small>
+                    </span>
+                  </button>
+                )}
+                {fallback && fallback.similar.length > 0 && (
+                  <>
+                    <em className="fallback-hint">혹시 이 장소를 찾으세요?</em>
+                    {fallback.similar.map((place) => (
+                      <button
+                        key={place.id}
+                        className="search-result"
+                        onClick={() => selectPlace(place)}
+                        type="button"
+                      >
+                        <span>
+                          <strong>{place.title}</strong>
+                          <small>{place.subtitle ?? ""}</small>
+                        </span>
+                      </button>
+                    ))}
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -747,6 +805,8 @@ const styles = `
   }
 
   .no-results { display: grid; gap: 4px; padding: 16px 14px; }
+  .no-results .search-result { margin: 6px -14px 0; width: calc(100% + 28px); }
+  .fallback-hint { margin-top: 10px; color: #8B95A1; font-size: 12px; font-style: normal; font-weight: 600; }
   .no-results strong { font-size: 14px; }
   .no-results span { color: #738078; font-size: 12px; }
 

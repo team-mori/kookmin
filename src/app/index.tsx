@@ -43,9 +43,12 @@ import {
 } from "../data/engineering-route";
 import {
   findEngineeringRoom,
-  searchEngineeringRooms,
+  parsePlaceId,
+  searchFallback,
+  searchPlaces,
   type EngineeringRoomSearchResult
-} from "../data/engineering-search";
+} from "../data/campus-search";
+import type { Place } from "../data/campus-types";
 import {
   BUILDING_CAMERA,
   CAMPUS_CAMERA,
@@ -94,8 +97,12 @@ export default function CampusMapScreen() {
     useState<EngineeringRoomSearchResult | null>(null);
   const [activeStep, setActiveStep] = useState(0);
 
-  const searchResults = searchEngineeringRooms(searchQuery);
+  const searchResults = searchPlaces(searchQuery);
   const hasSearchQuery = searchQuery.trim().length > 0;
+  const fallback =
+    hasSearchQuery && searchResults.length === 0
+      ? searchFallback(searchQuery)
+      : null;
 
   const activeBuilding = activeBuildingId
     ? findBuilding(activeBuildingId)
@@ -173,6 +180,25 @@ export default function CampusMapScreen() {
     if (!indoorVisible) {
       router.push({ pathname: "/building/[id]", params: { id: "engineering" } });
     }
+  };
+
+  const selectPlace = (place: Place) => {
+    if (place.kind === "room") {
+      const { spaceId } = parsePlaceId(place.id);
+      const room = spaceId ? findEngineeringRoom(spaceId) : undefined;
+      if (room) selectRoom(room);
+      return;
+    }
+    setSearchOpen(false);
+    if (place.kind === "building") {
+      router.push({ pathname: "/building/[id]", params: { id: place.id } });
+      return;
+    }
+    cameraRef.current?.flyTo({
+      center: place.center,
+      duration: FLY_DURATION_MS,
+      zoom: 16.5
+    });
   };
 
   const handleSpacePress = (
@@ -401,30 +427,83 @@ export default function CampusMapScreen() {
           {searchOpen && hasSearchQuery && (
             <View style={styles.searchResults}>
               {searchResults.length > 0 ? (
-                searchResults.map((room) => (
+                searchResults.map((place) => (
                   <Pressable
-                    key={room.id}
-                    accessibilityLabel={`${room.roomNumber}호 ${room.name}, ${room.floor}층`}
+                    key={place.id}
+                    accessibilityLabel={`${place.title} ${place.subtitle ?? ""}`}
                     accessibilityRole="button"
-                    onPress={() => selectRoom(room)}
+                    onPress={() => selectPlace(place)}
                     style={({ pressed }) => [
                       styles.searchResult,
                       pressed && styles.searchResultPressed
                     ]}
                   >
                     <View style={styles.searchResultText}>
-                      <Text style={styles.searchResultRoom}>
-                        {room.roomNumber}호
-                      </Text>
+                      <Text style={styles.searchResultRoom}>{place.title}</Text>
                       <Text numberOfLines={1} style={styles.searchResultName}>
-                        {room.name}
+                        {place.subtitle ?? ""}
                       </Text>
                     </View>
-                    <Text style={styles.searchResultFloor}>{room.floor}F</Text>
+                    {place.kind === "room" && place.floor !== undefined && (
+                      <Text style={styles.searchResultFloor}>
+                        {floorLabel(place.floor)}
+                      </Text>
+                    )}
                   </Pressable>
                 ))
               ) : (
-                <EmptyState type="search" />
+                <View>
+                  <EmptyState type="search" />
+                  {fallback?.building && (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => selectPlace(fallback.building!)}
+                      style={({ pressed }) => [
+                        styles.searchResult,
+                        pressed && styles.searchResultPressed
+                      ]}
+                    >
+                      <View style={styles.searchResultText}>
+                        <Text style={styles.searchResultRoom}>
+                          {fallback.building.title}
+                        </Text>
+                        <Text style={styles.searchResultName}>
+                          건물로 이동
+                        </Text>
+                      </View>
+                    </Pressable>
+                  )}
+                  {fallback && fallback.similar.length > 0 && (
+                    <>
+                      <Text style={styles.fallbackHint}>
+                        혹시 이 장소를 찾으세요?
+                      </Text>
+                      {fallback.similar.map((place) => (
+                        <Pressable
+                          key={place.id}
+                          accessibilityRole="button"
+                          onPress={() => selectPlace(place)}
+                          style={({ pressed }) => [
+                            styles.searchResult,
+                            pressed && styles.searchResultPressed
+                          ]}
+                        >
+                          <View style={styles.searchResultText}>
+                            <Text style={styles.searchResultRoom}>
+                              {place.title}
+                            </Text>
+                            <Text
+                              numberOfLines={1}
+                              style={styles.searchResultName}
+                            >
+                              {place.subtitle ?? ""}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      ))}
+                    </>
+                  )}
+                </View>
               )}
             </View>
           )}
@@ -714,6 +793,14 @@ const styles = StyleSheet.create({
     color: "#66716C",
     fontSize: 12,
     marginTop: 2
+  },
+  fallbackHint: {
+    color: theme.color.text.tertiary,
+    fontSize: 12,
+    fontWeight: "600",
+    paddingHorizontal: 14,
+    paddingBottom: 4,
+    paddingTop: 10
   },
   searchResultFloor: {
     backgroundColor: theme.color.bg.interactive.selected,
