@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@maplibre/maplibre-gl-style-spec": "^26.2.1",
     "@maplibre/maplibre-react-native": "11.3.6",
     "expo": "~57.0.4",
     "expo-constants": "~57.0.3",
